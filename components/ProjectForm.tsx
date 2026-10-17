@@ -11,6 +11,12 @@ import { validateProjectForm, validateTestTarget } from "@/lib/validation";
 import type { ValidationResult } from "@/lib/validation";
 import type { MutateResult } from "@/hooks/useProjects";
 import type { ProjectFormValues } from "@/types/project";
+import {
+  ChevronDownIcon,
+  GearIcon,
+  PlusIcon,
+  SpinnerIcon,
+} from "@/components/icons";
 
 type TestTargetInput = Pick<
   ProjectFormValues,
@@ -81,25 +87,25 @@ export default function ProjectForm({ onAdd }: ProjectFormProps) {
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      noValidate
-      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
-    >
-      <h2 className="text-lg font-semibold text-slate-900">
-        Tambah Project Baru
-      </h2>
-      <p className="mt-1 text-sm text-slate-500">
-        Hanya admin yang dapat menambah project.
-      </p>
+    <form onSubmit={handleSubmit} noValidate className="card p-5 sm:p-6">
+      <div className="flex items-center gap-2.5">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+          <PlusIcon className="h-4.5 w-4.5" />
+        </span>
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">
+            Tambah Project Baru
+          </h2>
+          <p className="text-sm text-slate-500">
+            Hanya admin yang dapat menambah project.
+          </p>
+        </div>
+      </div>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         {/* Input nama project */}
         <div>
-          <label
-            htmlFor="project-name"
-            className="mb-1.5 block text-sm font-medium text-slate-700"
-          >
+          <label htmlFor="project-name" className="label">
             Nama Project <span className="text-rose-500">*</span>
           </label>
           <input
@@ -111,11 +117,7 @@ export default function ProjectForm({ onAdd }: ProjectFormProps) {
             placeholder="cth: n8n Production"
             aria-invalid={Boolean(errors.name)}
             aria-describedby={errors.name ? "project-name-error" : undefined}
-            className={`w-full rounded-xl border px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:ring-2 ${
-              errors.name
-                ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100"
-                : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-            }`}
+            className={`input ${errors.name ? "input-invalid" : ""}`}
           />
           <div className="mt-1.5 flex items-center justify-between">
             {errors.name ? (
@@ -125,7 +127,7 @@ export default function ProjectForm({ onAdd }: ProjectFormProps) {
             ) : (
               <span />
             )}
-            <span className="text-[11px] text-slate-400">
+            <span className="text-xs text-slate-500">
               {name.trim().length}/100
             </span>
           </div>
@@ -133,10 +135,7 @@ export default function ProjectForm({ onAdd }: ProjectFormProps) {
 
         {/* Input link project */}
         <div>
-          <label
-            htmlFor="project-url"
-            className="mb-1.5 block text-sm font-medium text-slate-700"
-          >
+          <label htmlFor="project-url" className="label">
             Link Project <span className="text-rose-500">*</span>
           </label>
           <input
@@ -148,18 +147,14 @@ export default function ProjectForm({ onAdd }: ProjectFormProps) {
             placeholder="https://contoh.com/project"
             aria-invalid={Boolean(errors.url)}
             aria-describedby={errors.url ? "project-url-error" : undefined}
-            className={`w-full rounded-xl border px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:ring-2 ${
-              errors.url
-                ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100"
-                : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-            }`}
+            className={`input ${errors.url ? "input-invalid" : ""}`}
           />
           {errors.url ? (
             <p id="project-url-error" className="mt-1.5 text-xs text-rose-600">
               {errors.url}
             </p>
           ) : (
-            <p className="mt-1.5 text-[11px] text-slate-400">
+            <p className="mt-1.5 text-xs text-slate-500">
               Harus berawalan http:// atau https://
             </p>
           )}
@@ -167,12 +162,9 @@ export default function ProjectForm({ onAdd }: ProjectFormProps) {
 
         {/* Input link halaman hasil testing (opsional) */}
         <div className="sm:col-span-2">
-          <label
-            htmlFor="project-test-result-url"
-            className="mb-1.5 block text-sm font-medium text-slate-700"
-          >
+          <label htmlFor="project-test-result-url" className="label">
             Link Hasil Testing{" "}
-            <span className="text-xs font-normal text-slate-400">(opsional)</span>
+            <span className="text-xs font-normal text-slate-500">(opsional)</span>
           </label>
           <input
             id="project-test-result-url"
@@ -182,37 +174,49 @@ export default function ProjectForm({ onAdd }: ProjectFormProps) {
             onChange={(e) => setTestResultUrl(e.target.value)}
             placeholder="https://contoh.com/hasil-testing"
             aria-invalid={Boolean(errors.testResultUrl)}
-            aria-describedby={errors.testResultUrl ? "project-test-result-url-error" : undefined}
-            className={`w-full rounded-xl border px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:ring-2 ${
-              errors.testResultUrl
-                ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100"
-                : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-            }`}
+            aria-describedby={
+              errors.testResultUrl ? "project-test-result-url-error" : undefined
+            }
+            className={`input ${errors.testResultUrl ? "input-invalid" : ""}`}
           />
           {errors.testResultUrl ? (
-            <p id="project-test-result-url-error" className="mt-1.5 text-xs text-rose-600">
+            <p
+              id="project-test-result-url-error"
+              className="mt-1.5 text-xs text-rose-600"
+            >
               {errors.testResultUrl}
             </p>
           ) : (
-            <p className="mt-1.5 text-[11px] text-slate-400">
-              Ditampilkan di card project — diklik akan membuka tab baru ke halaman hasil testing.
+            <p className="mt-1.5 text-xs text-slate-500">
+              Ditampilkan di card project — diklik akan membuka tab baru ke
+              halaman hasil testing.
             </p>
           )}
         </div>
       </div>
 
       {serverError && (
-        <p role="alert" className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-700">
+        <p
+          role="alert"
+          className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-700"
+        >
           {serverError}
         </p>
       )}
 
       {/* Target repo uji — opsional per project */}
-      <details className="mt-4 rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
-        <summary className="cursor-pointer text-sm font-semibold text-slate-700">
-          Repo GitHub untuk Test <span className="font-normal text-slate-400">(opsional — kosong = pakai default server)</span>
+      <details className="mt-4 rounded-xl border border-slate-200 bg-slate-50/60">
+        <summary className="flex items-center justify-between gap-2 px-4 py-3 text-sm font-semibold text-slate-700">
+          <span className="flex min-w-0 items-center gap-2">
+            <GearIcon className="h-4 w-4 shrink-0 text-slate-400" />
+            Repo GitHub untuk Test
+            <span className="hidden font-normal text-slate-500 sm:inline">
+              (opsional — kosong = default server)
+            </span>
+          </span>
+          <ChevronDownIcon className="summary-chevron h-4 w-4 shrink-0 text-slate-400" />
         </summary>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 border-t border-slate-200 px-4 py-4 sm:grid-cols-2">
           <div>
             <label htmlFor="project-test-owner" className="mb-1.5 block text-xs font-medium text-slate-600">
               Owner GitHub
@@ -224,11 +228,7 @@ export default function ProjectForm({ onAdd }: ProjectFormProps) {
               onChange={(e) => setTestOwner(e.target.value)}
               placeholder="cth: Raja-Derek"
               aria-invalid={Boolean(errors.testOwner)}
-              className={`w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition focus:ring-2 ${
-                errors.testOwner
-                  ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100"
-                  : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-              }`}
+              className={`input py-2 text-sm ${errors.testOwner ? "input-invalid" : ""}`}
             />
             {errors.testOwner && (
               <p className="mt-1.5 text-xs text-rose-600">{errors.testOwner}</p>
@@ -245,11 +245,7 @@ export default function ProjectForm({ onAdd }: ProjectFormProps) {
               onChange={(e) => setTestRepo(e.target.value)}
               placeholder="cth: e2e-salesforce"
               aria-invalid={Boolean(errors.testRepo)}
-              className={`w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition focus:ring-2 ${
-                errors.testRepo
-                  ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100"
-                  : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-              }`}
+              className={`input py-2 text-sm ${errors.testRepo ? "input-invalid" : ""}`}
             />
             {errors.testRepo && (
               <p className="mt-1.5 text-xs text-rose-600">{errors.testRepo}</p>
@@ -266,11 +262,7 @@ export default function ProjectForm({ onAdd }: ProjectFormProps) {
               onChange={(e) => setTestWorkflow(e.target.value)}
               placeholder="cth: salesforce-flow.yml"
               aria-invalid={Boolean(errors.testWorkflow)}
-              className={`w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition focus:ring-2 ${
-                errors.testWorkflow
-                  ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100"
-                  : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-              }`}
+              className={`input py-2 text-sm ${errors.testWorkflow ? "input-invalid" : ""}`}
             />
             {errors.testWorkflow && (
               <p className="mt-1.5 text-xs text-rose-600">{errors.testWorkflow}</p>
@@ -287,30 +279,32 @@ export default function ProjectForm({ onAdd }: ProjectFormProps) {
               onChange={(e) => setTestRef(e.target.value)}
               placeholder="cth: master"
               aria-invalid={Boolean(errors.testRef)}
-              className={`w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition focus:ring-2 ${
-                errors.testRef
-                  ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100"
-                  : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
-              }`}
+              className={`input py-2 text-sm ${errors.testRef ? "input-invalid" : ""}`}
             />
             {errors.testRef && (
               <p className="mt-1.5 text-xs text-rose-600">{errors.testRef}</p>
             )}
           </div>
         </div>
-        <p className="mt-2 text-[11px] text-slate-400">
-          Owner & repo wajib diisi bersamaan. Workflow tanpa inputs didukung — dispatch hanya mengirim branch.
+        <p className="border-t border-slate-200/70 px-4 py-3 text-xs text-slate-500">
+          Owner &amp; repo wajib diisi bersamaan. Workflow tanpa inputs didukung —
+          dispatch hanya mengirim branch.
         </p>
       </details>
 
-      <div className="mt-4 flex justify-end">
-        <button
-          type="submit"
-          disabled={busy}
-          className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 active:scale-[0.98] disabled:opacity-60"
-        >
-          <span aria-hidden="true">＋</span>
-          {busy ? "Menyimpan…" : "Simpan Project"}
+      <div className="mt-5 flex justify-end">
+        <button type="submit" disabled={busy} className="btn btn-primary w-full sm:w-auto">
+          {busy ? (
+            <>
+              <SpinnerIcon className="h-4 w-4" />
+              Menyimpan…
+            </>
+          ) : (
+            <>
+              <PlusIcon className="h-4 w-4" />
+              Simpan Project
+            </>
+          )}
         </button>
       </div>
     </form>

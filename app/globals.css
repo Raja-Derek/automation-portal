@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
+  --background: #f6f8fb;
   --foreground: #0f172a;
 }
 
@@ -12,6 +12,13 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* ---------- Base ---------- */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -20,4 +27,127 @@ body {
     ui-sans-serif,
     system-ui,
     sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background-color: #bfdbfe;
+  color: #0f172a;
+}
+
+/* Sembunyikan marker default <details> agar bisa dikustom.
+   (details dipakai untuk seksi "Repo GitHub untuk Test"). */
+details > summary {
+  list-style: none;
+  cursor: pointer;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+summary .summary-chevron {
+  transition: transform 0.2s ease;
+}
+details[open] summary .summary-chevron {
+  transform: rotate(180deg);
+}
+
+/* ---------- Komponen ---------- */
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-slate-200 bg-white shadow-sm;
+  }
+
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-slate-700;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400;
+  }
+
+  .input-invalid {
+    @apply border-rose-300 focus:border-rose-400 focus:ring-rose-100;
+  }
+
+  /* Tombol: gabungkan `.btn` + salah satu varian, mis. "btn btn-primary". */
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-1.5 rounded-xl text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply bg-slate-900 px-4 py-2.5 text-white hover:bg-slate-700 focus-visible:ring-slate-900;
+  }
+  .btn-secondary {
+    @apply border border-slate-200 bg-white px-4 py-2.5 text-slate-700 hover:bg-slate-50 focus-visible:ring-slate-400;
+  }
+  /* Varian tinted: aksi sekunder yang tetap jelas tanpa menyaingi primary. */
+  .btn-tint {
+    @apply border border-blue-200 bg-blue-50 px-4 py-2.5 text-blue-700 hover:bg-blue-100 focus-visible:ring-blue-400;
+  }
+  .btn-danger {
+    @apply bg-rose-600 px-4 py-2.5 text-white hover:bg-rose-500 focus-visible:ring-rose-500;
+  }
+  .btn-ghost {
+    @apply px-3 py-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 focus-visible:ring-slate-400;
+  }
+  .btn-sm {
+    @apply px-3 py-2 text-xs;
+  }
+
+  /* Badge: gabungkan `.badge` + varian warna, mis. "badge badge-blue". */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+  .badge-neutral {
+    @apply bg-slate-100 text-slate-600;
+  }
+  .badge-blue {
+    @apply bg-blue-50 text-blue-700;
+  }
+  .badge-emerald {
+    @apply bg-emerald-50 text-emerald-700;
+  }
+  .badge-amber {
+    @apply bg-amber-50 text-amber-700;
+  }
+  .badge-rose {
+    @apply bg-rose-50 text-rose-700;
+  }
+
+  /* Skeleton loading dengan efek shimmer. */
+  .skeleton {
+    @apply relative overflow-hidden rounded-2xl border border-slate-200 bg-white;
+  }
+  .skeleton::after {
+    content: "";
+    @apply absolute inset-0 -translate-x-full;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(148, 163, 184, 0.18),
+      transparent
+    );
+    animation: ap-shimmer 1.5s infinite;
+  }
+}
+
+@keyframes ap-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Hormati preferensi pengguna yang ingin mengurangi animasi. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

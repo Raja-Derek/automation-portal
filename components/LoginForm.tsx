@@ -5,6 +5,7 @@
 
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { LockIcon, SpinnerIcon } from "@/components/icons";
 
 // Disalin dari lib/users.ts agar bundle client tidak ikut membawa bcrypt.
 // Nilainya harus sama dengan ADMIN_EMAIL / DEMO_USER_EMAIL di server.
@@ -44,15 +45,22 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
   };
 
   return (
-    <div className="mx-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-slate-900">Masuk</h2>
-      <p className="mt-1 text-sm text-slate-500">
-        Daftar project hanya bisa dilihat setelah login.
-      </p>
+    <div className="card w-full max-w-md p-6">
+      <div className="flex items-center gap-2.5">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+          <LockIcon className="h-4.5 w-4.5" />
+        </span>
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Masuk Admin</h2>
+          <p className="text-sm text-slate-500">
+            Masuk untuk mengelola project.
+          </p>
+        </div>
+      </div>
 
       <form onSubmit={handleSubmit} noValidate className="mt-4 space-y-3">
         <div>
-          <label htmlFor="auth-email" className="mb-1.5 block text-sm font-medium text-slate-700">
+          <label htmlFor="auth-email" className="label">
             Email
           </label>
           <input
@@ -62,11 +70,11 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="nama@email.com"
-            className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            className="input"
           />
         </div>
         <div>
-          <label htmlFor="auth-password" className="mb-1.5 block text-sm font-medium text-slate-700">
+          <label htmlFor="auth-password" className="label">
             Password
           </label>
           <input
@@ -76,7 +84,7 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
-            className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            className="input"
           />
         </div>
 
@@ -86,12 +94,15 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
           </p>
         )}
 
-        <button
-          type="submit"
-          disabled={busy}
-          className="w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-60"
-        >
-          {busy ? "Memproses…" : "Masuk"}
+        <button type="submit" disabled={busy} className="btn btn-primary w-full">
+          {busy ? (
+            <>
+              <SpinnerIcon className="h-4 w-4" />
+              Memproses…
+            </>
+          ) : (
+            "Masuk"
+          )}
         </button>
       </form>
 
@@ -102,14 +113,14 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
           <button
             type="button"
             onClick={() => fill(ADMIN_EMAIL, "tahubulat")}
-            className="rounded-lg border border-slate-200 bg-white px-2 py-1 font-medium hover:border-blue-300 hover:text-blue-700"
+            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-medium transition hover:border-blue-300 hover:text-blue-700"
           >
             Isi admin ({ADMIN_EMAIL})
           </button>
           <button
             type="button"
             onClick={() => fill(DEMO_USER_EMAIL, "user123")}
-            className="rounded-lg border border-slate-200 bg-white px-2 py-1 font-medium hover:border-blue-300 hover:text-blue-700"
+            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-medium transition hover:border-blue-300 hover:text-blue-700"
           >
             Isi user ({DEMO_USER_EMAIL})
           </button>

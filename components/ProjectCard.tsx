@@ -1,16 +1,29 @@
 "use client";
 
 // Kartu project individual.
-// - Klik di mana saja pada card (kecuali tombol) membuka link di tab baru.
-// - Tombol Edit & Hapus memakai stopPropagation agar tidak ikut membuka link.
+// - Nama project adalah <a> asli (stretched link) yang membuka tab baru,
+//   sehingga bisa di-middle-click / "open in new tab" & ramah screen reader.
+// - Tombol Edit/Hapus/Test memakai `relative z-10` agar berada di atas
+//   overlay link, dan tidak perlu stopPropagation.
 // - Untuk pengguna non-admin, onEdit/onDelete tidak diberikan sehingga
 //   tombol disembunyikan (read-only). Keamanan tetap di server.
 // - Tombol Test (admin saja, via canTest) memicu GitHub Action
 //   workflow_dispatch; status dipolling dan label "Tested" tampil publik.
 
-import type { MouseEvent } from "react";
 import type { Project } from "@/types/project";
 import { useProjectTest } from "@/hooks/useProjectTest";
+import {
+  CheckIcon,
+  CloseIcon,
+  ExternalLinkIcon,
+  GearIcon,
+  LinkIcon,
+  PencilIcon,
+  PlayIcon,
+  RefreshIcon,
+  SpinnerIcon,
+  TrashIcon,
+} from "@/components/icons";
 
 interface ProjectCardProps {
   project: Project;
@@ -30,6 +43,24 @@ function getHostname(url: string): string {
   }
 }
 
+/** Warna avatar deterministik dari nama (tinted, bukan gradient). */
+const AVATAR_TINTS = [
+  "bg-blue-50 text-blue-700",
+  "bg-sky-50 text-sky-700",
+  "bg-teal-50 text-teal-700",
+  "bg-emerald-50 text-emerald-700",
+  "bg-amber-50 text-amber-700",
+  "bg-rose-50 text-rose-700",
+];
+
+function getAvatarTint(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i += 1) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  }
+  return AVATAR_TINTS[hash % AVATAR_TINTS.length];
+}
+
 export default function ProjectCard({
   project,
   onEdit,
@@ -43,114 +74,92 @@ export default function ProjectCard({
     error: testError,
     trigger: triggerTest,
   } = useProjectTest(project);
-  const openProject = () => {
-    window.open(project.url, "_blank", "noopener,noreferrer");
-  };
 
-  const handleCardClick = () => {
-    openProject();
-  };
-
-  // Tombol di dalam card tidak boleh memicu openProject.
-  const handleEditClick = (e: MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    onEdit?.(project);
-  };
-
-  const handleDeleteClick = (e: MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    onDelete?.(project);
-  };
-
-  const handleTestClick = (e: MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    void triggerTest();
-  };
-
-  // Dukung keyboard: Enter / Space pada card membuka link.
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
-    if (e.key === "Enter" || e.key === " ") {
-      // Jangan buka link jika fokus sedang di tombol.
-      if ((e.target as HTMLElement).closest("button")) return;
-      e.preventDefault();
-      openProject();
-    }
-  };
+  const initial = project.name.trim().charAt(0).toUpperCase() || "?";
 
   return (
-    <article
-      onClick={handleCardClick}
-      onKeyDown={handleKeyDown}
-      tabIndex={0}
-      role="link"
-      aria-label={`Buka ${project.name} di tab baru`}
-      title={project.url}
-      className="group flex cursor-pointer flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-    >
+    <article className="group card relative flex h-full flex-col p-5 transition has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-blue-500 has-[a:focus-visible]:ring-offset-2 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
+      {/* Header: avatar + nama + badge target */}
       <div className="flex items-start justify-between gap-3">
-        {/* Avatar huruf depan + badge hostname */}
         <div className="flex min-w-0 items-center gap-3">
           <div
             aria-hidden="true"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-base font-bold text-white"
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base font-bold ring-1 ring-black/5 ${getAvatarTint(project.name)}`}
           >
-            {project.name.trim().charAt(0).toUpperCase() || "?"}
+            {initial}
           </div>
           <div className="min-w-0">
-            <h3 className="truncate text-[15px] font-semibold text-slate-900">
-              {project.name}
-            </h3>
-            <span className="mt-0.5 inline-block max-w-full truncate rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-500">
-              {getHostname(project.url)}
-            </span>
-            {project.testOwner && project.testRepo ? (
-              <span
-                title={`Workflow: ${project.testWorkflow ?? "default"} @ ${project.testRef ?? "default"}`}
-                className="mt-0.5 ml-1 inline-block max-w-full truncate rounded-md bg-violet-50 px-1.5 py-0.5 text-[11px] font-medium text-violet-600"
+            <h3 className="truncate text-base font-semibold text-slate-900">
+              {/* Stretched link: <a> asli + overlay `after` menutupi seluruh card. */}
+              <a
+                href={project.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`Buka ${project.name} di tab baru`}
+                className="rounded-sm after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus:outline-none"
               >
-                ⚙ {project.testOwner}/{project.testRepo}
+                {project.name}
+              </a>
+            </h3>
+            <div className="mt-1 flex flex-wrap items-center gap-1">
+              <span className="badge badge-neutral max-w-full min-w-0">
+                <span className="truncate">{getHostname(project.url)}</span>
               </span>
-            ) : (
-              canTest && (
-                <span className="mt-0.5 ml-1 inline-block rounded-md bg-slate-50 px-1.5 py-0.5 text-[11px] font-medium text-slate-400">
-                  ⚙ repo default
+              {project.testOwner && project.testRepo ? (
+                <span
+                  title={`Workflow: ${project.testWorkflow ?? "default"} @ ${project.testRef ?? "default"}`}
+                  className="badge badge-blue max-w-full min-w-0"
+                >
+                  <GearIcon className="h-3 w-3 shrink-0" />
+                  <span className="truncate">
+                    {project.testOwner}/{project.testRepo}
+                  </span>
                 </span>
-              )
-            )}
+              ) : (
+                canTest && (
+                  <span className="badge badge-neutral">
+                    <GearIcon className="h-3 w-3" />
+                    repo default
+                  </span>
+                )
+              )}
+            </div>
           </div>
         </div>
 
         {/* Ikon eksternal */}
         <span
           aria-hidden="true"
-          className="mt-1 shrink-0 text-slate-300 transition group-hover:text-blue-500"
+          className="mt-0.5 shrink-0 text-slate-400 transition group-hover:text-blue-600"
         >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-            <polyline points="15 3 21 3 21 9" />
-            <line x1="10" y1="14" x2="21" y2="3" />
-          </svg>
+          <ExternalLinkIcon className="h-4 w-4" />
         </span>
       </div>
 
-      {/* URL lengkap, dipotong jika terlalu panjang */}
-      <p className="mt-3 truncate text-sm text-blue-600 hover:underline">
-        {project.url}
-      </p>
+      {/* URL lengkap, dipotong jika terlalu panjang (metadata, bukan link terpisah). */}
+      <div className="mt-3 flex items-center gap-1.5 text-sm text-slate-500">
+        <LinkIcon className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+        <span className="truncate">{project.url}</span>
+      </div>
+
+      {/* Link halaman hasil testing — dibuka di tab baru */}
+      {project.testResultUrl && (
+        <a
+          href={project.testResultUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={project.testResultUrl}
+          className="btn btn-sm relative z-10 mt-3 w-full border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 focus-visible:ring-emerald-500"
+        >
+          <LinkIcon className="h-3.5 w-3.5" />
+          Lihat Hasil Testing
+        </a>
+      )}
 
       {/* Status uji GitHub Action — terlihat publik */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {testStatus === "running" && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">
+          <span className="badge badge-amber">
             <span
               aria-hidden="true"
               className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500"
@@ -159,13 +168,15 @@ export default function ProjectCard({
           </span>
         )}
         {testStatus === "success" && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
-            ✓ Tested
+          <span className="badge badge-emerald">
+            <CheckIcon className="h-3 w-3" />
+            Tested
           </span>
         )}
         {testStatus === "failed" && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700">
-            ✕ Test gagal
+          <span className="badge badge-rose">
+            <CloseIcon className="h-3 w-3" />
+            Test gagal
           </span>
         )}
         {testHtmlUrl && testStatus !== "idle" && (
@@ -173,84 +184,83 @@ export default function ProjectCard({
             href={testHtmlUrl}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="text-[11px] font-semibold text-slate-400 underline-offset-2 hover:text-blue-600 hover:underline"
+            className="relative z-10 inline-flex items-center gap-1 text-xs font-semibold text-slate-500 underline-offset-2 hover:text-blue-600 hover:underline"
           >
+            <ExternalLinkIcon className="h-3 w-3" />
             Lihat run
           </a>
         )}
       </div>
       {testStatus === "running" && (
-        <p role="status" className="mt-1.5 text-[11px] text-amber-600">
+        <p role="status" className="mt-1.5 text-xs text-amber-700">
           GitHub Action sedang berlangsung — status diperbarui otomatis.
         </p>
       )}
       {testError && (
-        <p role="alert" className="mt-1.5 text-[11px] text-rose-600">
+        <p role="alert" className="mt-1.5 text-xs text-rose-600">
           {testError}
         </p>
       )}
 
-      {/* Link halaman hasil testing — dibuka di tab baru */}
-      {project.testResultUrl && (
-        <a
-          href={project.testResultUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          title={project.testResultUrl}
-          className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-        >
-          <span aria-hidden="true">🔗</span>
-          Lihat Hasil Testing
-        </a>
-      )}
-
-      {/* Tombol Test — hanya untuk admin */}
-      {canTest && (
-        <div className="mt-3">
+      {/* Footer — didorong ke bawah agar card sejajar */}
+      <div className="relative z-10 mt-auto pt-4">
+        {/* Tombol Test — hanya untuk admin. Tinted agar tidak menyaingi primary. */}
+        {canTest && (
           <button
             type="button"
-            onClick={handleTestClick}
+            onClick={() => void triggerTest()}
             disabled={testBusy || testStatus === "running"}
-            className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
+            className="btn btn-tint w-full"
           >
-            {testStatus === "running" || testBusy
-              ? "⏳ Menjalankan…"
-              : testStatus === "success" || testStatus === "failed"
-                ? "↻ Test ulang"
-                : "▶ Test via GitHub Action"}
+            {testStatus === "running" || testBusy ? (
+              <>
+                <SpinnerIcon className="h-3.5 w-3.5" />
+                Menjalankan…
+              </>
+            ) : testStatus === "success" || testStatus === "failed" ? (
+              <>
+                <RefreshIcon className="h-3.5 w-3.5" />
+                Test ulang
+              </>
+            ) : (
+              <>
+                <PlayIcon className="h-3 w-3" />
+                Test via GitHub Action
+              </>
+            )}
           </button>
-        </div>
-      )}
+        )}
 
-      {/* Aksi Edit & Hapus — hanya untuk admin. Disembunyikan untuk user biasa. */}
-      {onEdit || onDelete ? (
-        <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3">
-          {onEdit && (
-            <button
-              type="button"
-              onClick={handleEditClick}
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-            >
-              ✎ Edit
-            </button>
-          )}
-          {onDelete && (
-            <button
-              type="button"
-              onClick={handleDeleteClick}
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
-            >
-              🗑 Hapus
-            </button>
-          )}
-        </div>
-      ) : (
-        <p className="mt-4 border-t border-slate-100 pt-3 text-[11px] text-slate-400">
-          Mode lihat saja — hanya admin yang dapat mengubah.
-        </p>
-      )}
+        {/* Aksi Edit & Hapus — hanya untuk admin. Disembunyikan untuk user biasa. */}
+        {onEdit || onDelete ? (
+          <div className="mt-3 flex items-center gap-2 border-t border-slate-100 pt-3">
+            {onEdit && (
+              <button
+                type="button"
+                onClick={() => onEdit(project)}
+                className="btn btn-secondary btn-sm flex-1"
+              >
+                <PencilIcon className="h-3.5 w-3.5" />
+                Edit
+              </button>
+            )}
+            {onDelete && (
+              <button
+                type="button"
+                onClick={() => onDelete(project)}
+                className="btn btn-secondary btn-sm flex-1 text-rose-600 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus-visible:ring-rose-500"
+              >
+                <TrashIcon className="h-3.5 w-3.5" />
+                Hapus
+              </button>
+            )}
+          </div>
+        ) : (
+          <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
+            Mode lihat saja — hanya admin yang dapat mengubah.
+          </p>
+        )}
+      </div>
     </article>
   );
 }

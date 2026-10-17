@@ -3,8 +3,10 @@
 // Dialog konfirmasi sebelum menghapus project.
 // Mencegah penghapusan tidak sengaja.
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { Project } from "@/types/project";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { AlertIcon } from "@/components/icons";
 
 interface DeleteConfirmDialogProps {
   project: Project | null;
@@ -17,6 +19,11 @@ export default function DeleteConfirmDialog({
   onCancel,
   onConfirm,
 }: DeleteConfirmDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Tahan fokus di dalam dialog & kembalikan ke pemicu saat ditutup.
+  useFocusTrap(dialogRef, project !== null);
+
   // Tutup dengan Escape.
   useEffect(() => {
     if (!project) return;
@@ -31,20 +38,22 @@ export default function DeleteConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[2px]"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
       onClick={onCancel}
       role="presentation"
     >
       <div
+        ref={dialogRef}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="delete-dialog-title"
         aria-describedby="delete-dialog-desc"
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl"
+        className="w-full max-w-sm rounded-t-2xl bg-white p-6 shadow-xl outline-none sm:rounded-2xl"
       >
-        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-rose-100 text-xl">
-          <span aria-hidden="true">⚠️</span>
+        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+          <AlertIcon className="h-5 w-5" />
         </div>
         <h2
           id="delete-dialog-title"
@@ -61,18 +70,13 @@ export default function DeleteConfirmDialog({
         </p>
 
         <div className="mt-5 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            autoFocus
-            className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-          >
+          <button type="button" onClick={onCancel} className="btn btn-secondary">
             Batal
           </button>
           <button
             type="button"
             onClick={() => onConfirm(project.id)}
-            className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+            className="btn btn-danger"
           >
             Ya, Hapus
           </button>
