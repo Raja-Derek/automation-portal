@@ -3,7 +3,7 @@
 
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/session";
-import { validateProjectForm } from "@/lib/validation";
+import { validateProjectForm, validateTestTarget } from "@/lib/validation";
 import { createProject, listProjects } from "@/lib/projects-store";
 
 // GET: publik — pengunjung tanpa login boleh melihat daftar project.
@@ -12,7 +12,7 @@ export async function GET() {
   return NextResponse.json({ projects: listProjects() });
 }
 
-// POST: hanya admin. Body { name, url }.
+// POST: hanya admin. Body { name, url, testOwner?, testRepo?, testWorkflow?, testRef? }.
 export async function POST(req: Request) {
   const auth = await requireAdmin();
   if ("error" in auth) return auth.error;
@@ -24,25 +24,35 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Body harus JSON valid." }, { status: 400 });
   }
 
-  const name =
-    typeof (body as { name?: unknown }).name === "string"
-      ? (body as { name: string }).name
-      : "";
-  const url =
-    typeof (body as { url?: unknown }).url === "string"
-      ? (body as { url: string }).url
-      : "";
+  const str = (v: unknown): string => (typeof v === "string" ? v : "");
+  const b = body as Record<string, unknown>;
+  const name = str(b.name);
+  const url = str(b.url);
+  const testOwner = str(b.testOwner);
+  const testRepo = str(b.testRepo);
+  const testWorkflow = str(b.testWorkflow);
+  const testRef = str(b.testRef);
+  const testResultUrl = str(b.testResultUrl);
 
   // Validasi server — frontend boleh menampilkan pesan yang sama,
   // tapi server tidak pernah percaya input client.
-  const errors = validateProjectForm(name, url);
-  if (errors.name || errors.url) {
+  const errors = {
+    ...validateProjectForm(name, url),
+    ...validateTestTarget(testOwner, testRepo, testWorkflow, testRef, testResultUrl),
+  };
+  if (Object.values(errors).some(Boolean)) {
     return NextResponse.json(
       { error: "Validasi gagal.", fields: errors },
       { status: 400 },
     );
   }
 
-  const project = createProject(name, url);
+  const project = createProject(name, url, {
+    testOwner,
+    testRepo,
+    testWorkflow,
+    testRef,
+    testResultUrl,
+  });
   return NextResponse.json({ project }, { status: 201 });
 }

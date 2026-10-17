@@ -7,7 +7,7 @@
 // ada di Route Handler (requireAdmin) + proxy.ts — bukan di UI.
 
 import { useCallback, useEffect, useState } from "react";
-import type { Project } from "@/types/project";
+import type { Project, ProjectFormValues } from "@/types/project";
 import type { ValidationResult } from "@/lib/validation";
 
 export interface MutateResult {
@@ -62,12 +62,19 @@ export function useProjects() {
   }, [reload]);
 
   const addProject = useCallback(
-    async (name: string, url: string): Promise<MutateResult> => {
+    async (
+      name: string,
+      url: string,
+      test?: Pick<
+        ProjectFormValues,
+        "testOwner" | "testRepo" | "testWorkflow" | "testRef" | "testResultUrl"
+      >,
+    ): Promise<MutateResult> => {
       try {
         const res = await fetch("/api/projects", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, url }),
+          body: JSON.stringify({ name, url, ...test }),
         });
         if (!res.ok) {
           const { message, fields } = await parseError(res);
@@ -84,12 +91,20 @@ export function useProjects() {
   );
 
   const updateProject = useCallback(
-    async (id: string, name: string, url: string): Promise<MutateResult> => {
+    async (
+      id: string,
+      name: string,
+      url: string,
+      test?: Pick<
+        ProjectFormValues,
+        "testOwner" | "testRepo" | "testWorkflow" | "testRef" | "testResultUrl"
+      >,
+    ): Promise<MutateResult> => {
       try {
         const res = await fetch(`/api/projects/${encodeURIComponent(id)}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, url }),
+          body: JSON.stringify({ name, url, ...test }),
         });
         if (!res.ok) {
           const { message, fields } = await parseError(res);

@@ -4,6 +4,11 @@
 export interface ValidationResult {
   name?: string;
   url?: string;
+  testOwner?: string;
+  testRepo?: string;
+  testWorkflow?: string;
+  testRef?: string;
+  testResultUrl?: string;
 }
 
 /**
@@ -56,5 +61,95 @@ export function validateProjectForm(
   const urlError = validateProjectUrl(url);
   if (nameError) errors.name = nameError;
   if (urlError) errors.url = urlError;
+  return errors;
+}
+
+const GITHUB_NAME_RE = /^[A-Za-z0-9_.-]+$/;
+
+/** Validasi owner repo GitHub (opsional, kosong = pakai default server). */
+export function validateTestOwner(owner: string): string | undefined {
+  const trimmed = owner.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length > 100 || !GITHUB_NAME_RE.test(trimmed)) {
+    return "Owner GitHub tidak valid (huruf, angka, titik, strip, underscore).";
+  }
+  return undefined;
+}
+
+/** Validasi nama repo GitHub (opsional, kosong = pakai default server). */
+export function validateTestRepo(repo: string): string | undefined {
+  const trimmed = repo.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length > 100 || !GITHUB_NAME_RE.test(trimmed)) {
+    return "Nama repo GitHub tidak valid (huruf, angka, titik, strip, underscore).";
+  }
+  return undefined;
+}
+
+/** Validasi nama file workflow (opsional, kosong = pakai default server). */
+export function validateTestWorkflow(workflow: string): string | undefined {
+  const trimmed = workflow.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length > 255 || !/^[A-Za-z0-9_.\/-]+\.ya?ml$/i.test(trimmed)) {
+    return "File workflow tidak valid (mis. salesforce-flow.yml).";
+  }
+  return undefined;
+}
+
+/** Validasi branch dispatch (opsional, kosong = pakai default server). */
+export function validateTestRef(ref: string): string | undefined {
+  const trimmed = ref.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length > 255 || /[\s~^:?*[\]\\]/.test(trimmed)) {
+    return "Branch tidak valid.";
+  }
+  return undefined;
+}
+
+/** Validasi link halaman hasil testing (opsional, kosong = tidak diatur). */
+export function validateTestResultUrl(url: string): string | undefined {
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+  if (!/^https?:\/\/.+/i.test(trimmed)) {
+    return "Link hasil testing harus berawalan http:// atau https://.";
+  }
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return "Link hasil testing harus berawalan http:// atau https://.";
+    }
+  } catch {
+    return "Link hasil testing harus berupa URL valid.";
+  }
+  return undefined;
+}
+
+/** Validasi target repo uji per-project (semua field opsional). */
+export function validateTestTarget(
+  owner: string,
+  repo: string,
+  workflow: string,
+  ref: string,
+  resultUrl: string = "",
+): ValidationResult {
+  const errors: ValidationResult = {};
+  const ownerError = validateTestOwner(owner);
+  const repoError = validateTestRepo(repo);
+  const workflowError = validateTestWorkflow(workflow);
+  const refError = validateTestRef(ref);
+  const resultUrlError = validateTestResultUrl(resultUrl);
+  if (ownerError) errors.testOwner = ownerError;
+  if (repoError) errors.testRepo = repoError;
+  if (workflowError) errors.testWorkflow = workflowError;
+  if (refError) errors.testRef = refError;
+  if (resultUrlError) errors.testResultUrl = resultUrlError;
+  // Owner & repo harus diisi berpasangan (tidak boleh hanya salah satu).
+  const hasOwner = owner.trim() !== "";
+  const hasRepo = repo.trim() !== "";
+  if (hasOwner !== hasRepo) {
+    const msg = "Owner dan repo harus diisi bersamaan (atau kosongkan keduanya).";
+    if (!errors.testOwner && hasOwner) errors.testOwner = msg;
+    if (!errors.testRepo && hasRepo) errors.testRepo = msg;
+  }
   return errors;
 }

@@ -5,15 +5,20 @@
 // - Tombol Edit & Hapus memakai stopPropagation agar tidak ikut membuka link.
 // - Untuk pengguna non-admin, onEdit/onDelete tidak diberikan sehingga
 //   tombol disembunyikan (read-only). Keamanan tetap di server.
+// - Tombol Test (admin saja, via canTest) memicu GitHub Action
+//   workflow_dispatch; status dipolling dan label "Tested" tampil publik.
 
 import type { MouseEvent } from "react";
 import type { Project } from "@/types/project";
+import { useProjectTest } from "@/hooks/useProjectTest";
 
 interface ProjectCardProps {
   project: Project;
   // Opsional: jika tidak diberikan, card menjadi read-only (mode pengguna biasa).
   onEdit?: (project: Project) => void;
   onDelete?: (project: Project) => void;
+  // Tampilkan tombol Test GitHub Action (hanya diberikan untuk admin).
+  canTest?: boolean;
 }
 
 /** Ambil hostname untuk ditampilkan sebagai badge kecil. */
@@ -29,8 +34,15 @@ export default function ProjectCard({
   project,
   onEdit,
   onDelete,
+  canTest,
 }: ProjectCardProps) {
-  // Buka link di tab baru dengan aman (noopener + noreferrer).
+  const {
+    status: testStatus,
+    htmlUrl: testHtmlUrl,
+    busy: testBusy,
+    error: testError,
+    trigger: triggerTest,
+  } = useProjectTest(project);
   const openProject = () => {
     window.open(project.url, "_blank", "noopener,noreferrer");
   };
@@ -48,6 +60,11 @@ export default function ProjectCard({
   const handleDeleteClick = (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     onDelete?.(project);
+  };
+
+  const handleTestClick = (e: MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    void triggerTest();
   };
 
   // Dukung keyboard: Enter / Space pada card membuka link.
@@ -86,6 +103,20 @@ export default function ProjectCard({
             <span className="mt-0.5 inline-block max-w-full truncate rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-500">
               {getHostname(project.url)}
             </span>
+            {project.testOwner && project.testRepo ? (
+              <span
+                title={`Workflow: ${project.testWorkflow ?? "default"} @ ${project.testRef ?? "default"}`}
+                className="mt-0.5 ml-1 inline-block max-w-full truncate rounded-md bg-violet-50 px-1.5 py-0.5 text-[11px] font-medium text-violet-600"
+              >
+                ⚙ {project.testOwner}/{project.testRepo}
+              </span>
+            ) : (
+              canTest && (
+                <span className="mt-0.5 ml-1 inline-block rounded-md bg-slate-50 px-1.5 py-0.5 text-[11px] font-medium text-slate-400">
+                  ⚙ repo default
+                </span>
+              )
+            )}
           </div>
         </div>
 
@@ -115,6 +146,83 @@ export default function ProjectCard({
       <p className="mt-3 truncate text-sm text-blue-600 hover:underline">
         {project.url}
       </p>
+
+      {/* Status uji GitHub Action — terlihat publik */}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {testStatus === "running" && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">
+            <span
+              aria-hidden="true"
+              className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500"
+            />
+            Testing…
+          </span>
+        )}
+        {testStatus === "success" && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
+            ✓ Tested
+          </span>
+        )}
+        {testStatus === "failed" && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700">
+            ✕ Test gagal
+          </span>
+        )}
+        {testHtmlUrl && testStatus !== "idle" && (
+          <a
+            href={testHtmlUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-[11px] font-semibold text-slate-400 underline-offset-2 hover:text-blue-600 hover:underline"
+          >
+            Lihat run
+          </a>
+        )}
+      </div>
+      {testStatus === "running" && (
+        <p role="status" className="mt-1.5 text-[11px] text-amber-600">
+          GitHub Action sedang berlangsung — status diperbarui otomatis.
+        </p>
+      )}
+      {testError && (
+        <p role="alert" className="mt-1.5 text-[11px] text-rose-600">
+          {testError}
+        </p>
+      )}
+
+      {/* Link halaman hasil testing — dibuka di tab baru */}
+      {project.testResultUrl && (
+        <a
+          href={project.testResultUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          title={project.testResultUrl}
+          className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+        >
+          <span aria-hidden="true">🔗</span>
+          Lihat Hasil Testing
+        </a>
+      )}
+
+      {/* Tombol Test — hanya untuk admin */}
+      {canTest && (
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={handleTestClick}
+            disabled={testBusy || testStatus === "running"}
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
+          >
+            {testStatus === "running" || testBusy
+              ? "⏳ Menjalankan…"
+              : testStatus === "success" || testStatus === "failed"
+                ? "↻ Test ulang"
+                : "▶ Test via GitHub Action"}
+          </button>
+        </div>
+      )}
 
       {/* Aksi Edit & Hapus — hanya untuk admin. Disembunyikan untuk user biasa. */}
       {onEdit || onDelete ? (

@@ -206,6 +206,7 @@ export default function AutomationPortal() {
                 // Teruskan handler HANYA untuk admin → tombol hilang untuk umum.
                 onEdit={isAdmin ? setEditingProject : undefined}
                 onDelete={isAdmin ? setDeletingProject : undefined}
+                canTest={isAdmin}
               />
             ))}
           </div>

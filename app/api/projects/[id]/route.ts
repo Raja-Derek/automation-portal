@@ -3,20 +3,45 @@
 
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/session";
-import { validateProjectForm } from "@/lib/validation";
+import { validateProjectForm, validateTestTarget } from "@/lib/validation";
 import { deleteProject, updateProject } from "@/lib/projects-store";
 
 type Ctx = RouteContext<"/api/projects/[id]">;
 
-async function readBody(req: Request): Promise<{ name: string; url: string }> {
+interface UpdateBody {
+  name: string;
+  url: string;
+  testOwner: string;
+  testRepo: string;
+  testWorkflow: string;
+  testRef: string;
+  testResultUrl: string;
+}
+
+async function readBody(req: Request): Promise<UpdateBody> {
+  const empty: UpdateBody = {
+    name: "",
+    url: "",
+    testOwner: "",
+    testRepo: "",
+    testWorkflow: "",
+    testRef: "",
+    testResultUrl: "",
+  };
   try {
-    const body = (await req.json()) as { name?: unknown; url?: unknown };
+    const body = (await req.json()) as Record<string, unknown>;
+    const str = (v: unknown): string => (typeof v === "string" ? v : "");
     return {
-      name: typeof body.name === "string" ? body.name : "",
-      url: typeof body.url === "string" ? body.url : "",
+      name: str(body.name),
+      url: str(body.url),
+      testOwner: str(body.testOwner),
+      testRepo: str(body.testRepo),
+      testWorkflow: str(body.testWorkflow),
+      testRef: str(body.testRef),
+      testResultUrl: str(body.testResultUrl),
     };
   } catch {
-    return { name: "", url: "" };
+    return empty;
   }
 }
 
@@ -30,16 +55,26 @@ export async function PUT(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "ID tidak valid." }, { status: 400 });
   }
 
-  const { name, url } = await readBody(req);
-  const errors = validateProjectForm(name, url);
-  if (errors.name || errors.url) {
+  const { name, url, testOwner, testRepo, testWorkflow, testRef, testResultUrl } =
+    await readBody(req);
+  const errors = {
+    ...validateProjectForm(name, url),
+    ...validateTestTarget(testOwner, testRepo, testWorkflow, testRef, testResultUrl),
+  };
+  if (Object.values(errors).some(Boolean)) {
     return NextResponse.json(
       { error: "Validasi gagal.", fields: errors },
       { status: 400 },
     );
   }
 
-  const updated = updateProject(id, name, url);
+  const updated = updateProject(id, name, url, {
+    testOwner,
+    testRepo,
+    testWorkflow,
+    testRef,
+    testResultUrl,
+  });
   if (!updated) {
     return NextResponse.json(
       { error: "Project tidak ditemukan." },

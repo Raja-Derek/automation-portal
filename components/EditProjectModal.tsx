@@ -7,14 +7,25 @@
 
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import type { Project } from "@/types/project";
-import { validateProjectForm } from "@/lib/validation";
+import type { Project, ProjectFormValues } from "@/types/project";
+import { validateProjectForm, validateTestTarget } from "@/lib/validation";
+import type { ValidationResult } from "@/lib/validation";
 import type { MutateResult } from "@/hooks/useProjects";
+
+type TestTargetInput = Pick<
+  ProjectFormValues,
+  "testOwner" | "testRepo" | "testWorkflow" | "testRef" | "testResultUrl"
+>;
 
 interface EditProjectModalProps {
   project: Project | null;
   onClose: () => void;
-  onSave: (id: string, name: string, url: string) => Promise<MutateResult>;
+  onSave: (
+    id: string,
+    name: string,
+    url: string,
+    test?: TestTargetInput,
+  ) => Promise<MutateResult>;
 }
 
 export default function EditProjectModal({
@@ -25,7 +36,12 @@ export default function EditProjectModal({
   // Inisialisasi langsung dari props (remount via key menjamin kesegaran data).
   const [name, setName] = useState(project?.name ?? "");
   const [url, setUrl] = useState(project?.url ?? "");
-  const [errors, setErrors] = useState<{ name?: string; url?: string }>({});
+  const [testOwner, setTestOwner] = useState(project?.testOwner ?? "");
+  const [testRepo, setTestRepo] = useState(project?.testRepo ?? "");
+  const [testWorkflow, setTestWorkflow] = useState(project?.testWorkflow ?? "");
+  const [testRef, setTestRef] = useState(project?.testRef ?? "");
+  const [testResultUrl, setTestResultUrl] = useState(project?.testResultUrl ?? "");
+  const [errors, setErrors] = useState<ValidationResult>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -45,12 +61,21 @@ export default function EditProjectModal({
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setServerError(null);
-    const validation = validateProjectForm(name, url);
+    const validation: ValidationResult = {
+      ...validateProjectForm(name, url),
+      ...validateTestTarget(testOwner, testRepo, testWorkflow, testRef, testResultUrl),
+    };
     setErrors(validation);
-    if (validation.name || validation.url) return;
+    if (Object.values(validation).some(Boolean)) return;
     setBusy(true);
     try {
-      const res = await onSave(project.id, name, url);
+      const res = await onSave(project.id, name, url, {
+        testOwner,
+        testRepo,
+        testWorkflow,
+        testRef,
+        testResultUrl,
+      });
       if (!res.ok) {
         if (res.fieldErrors) setErrors(res.fieldErrors);
         if (res.message) setServerError(res.message);
@@ -135,6 +160,125 @@ export default function EditProjectModal({
             {errors.url && (
               <p className="mt-1.5 text-xs text-rose-600">{errors.url}</p>
             )}
+          </div>
+
+          <div>
+            <label
+              htmlFor="edit-test-result-url"
+              className="mb-1.5 block text-sm font-medium text-slate-700"
+            >
+              Link Hasil Testing{" "}
+              <span className="text-xs font-normal text-slate-400">(opsional)</span>
+            </label>
+            <input
+              id="edit-test-result-url"
+              type="url"
+              inputMode="url"
+              value={testResultUrl}
+              onChange={(e) => setTestResultUrl(e.target.value)}
+              placeholder="https://contoh.com/hasil-testing"
+              className={`w-full rounded-xl border px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:ring-2 ${
+                errors.testResultUrl
+                  ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100"
+                  : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+              }`}
+            />
+            {errors.testResultUrl && (
+              <p className="mt-1.5 text-xs text-rose-600">{errors.testResultUrl}</p>
+            )}
+          </div>
+
+          {/* Target repo uji per-project (opsional) */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
+            <p className="text-sm font-semibold text-slate-700">
+              Repo GitHub untuk Test{" "}
+              <span className="font-normal text-slate-400">(opsional)</span>
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor="edit-test-owner" className="mb-1.5 block text-xs font-medium text-slate-600">
+                  Owner GitHub
+                </label>
+                <input
+                  id="edit-test-owner"
+                  type="text"
+                  value={testOwner}
+                  onChange={(e) => setTestOwner(e.target.value)}
+                  placeholder="cth: Raja-Derek"
+                  className={`w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition focus:ring-2 ${
+                    errors.testOwner
+                      ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100"
+                      : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                  }`}
+                />
+                {errors.testOwner && (
+                  <p className="mt-1.5 text-xs text-rose-600">{errors.testOwner}</p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="edit-test-repo" className="mb-1.5 block text-xs font-medium text-slate-600">
+                  Nama Repo
+                </label>
+                <input
+                  id="edit-test-repo"
+                  type="text"
+                  value={testRepo}
+                  onChange={(e) => setTestRepo(e.target.value)}
+                  placeholder="cth: e2e-salesforce"
+                  className={`w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition focus:ring-2 ${
+                    errors.testRepo
+                      ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100"
+                      : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                  }`}
+                />
+                {errors.testRepo && (
+                  <p className="mt-1.5 text-xs text-rose-600">{errors.testRepo}</p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="edit-test-workflow" className="mb-1.5 block text-xs font-medium text-slate-600">
+                  File Workflow
+                </label>
+                <input
+                  id="edit-test-workflow"
+                  type="text"
+                  value={testWorkflow}
+                  onChange={(e) => setTestWorkflow(e.target.value)}
+                  placeholder="cth: salesforce-flow.yml"
+                  className={`w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition focus:ring-2 ${
+                    errors.testWorkflow
+                      ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100"
+                      : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                  }`}
+                />
+                {errors.testWorkflow && (
+                  <p className="mt-1.5 text-xs text-rose-600">{errors.testWorkflow}</p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="edit-test-ref" className="mb-1.5 block text-xs font-medium text-slate-600">
+                  Branch
+                </label>
+                <input
+                  id="edit-test-ref"
+                  type="text"
+                  value={testRef}
+                  onChange={(e) => setTestRef(e.target.value)}
+                  placeholder="cth: master"
+                  className={`w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition focus:ring-2 ${
+                    errors.testRef
+                      ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100"
+                      : "border-slate-200 focus:border-blue-500 focus:ring-blue-100"
+                  }`}
+                />
+                {errors.testRef && (
+                  <p className="mt-1.5 text-xs text-rose-600">{errors.testRef}</p>
+                )}
+              </div>
+            </div>
+            <p className="mt-2 text-[11px] text-slate-400">
+              Kosongkan untuk memakai default server. Owner & repo wajib diisi bersamaan.
+            </p>
           </div>
 
           {serverError && (
