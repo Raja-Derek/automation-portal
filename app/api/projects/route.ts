@@ -9,7 +9,7 @@ import { createProject, listProjects } from "@/lib/projects-store";
 // GET: publik — pengunjung tanpa login boleh melihat daftar project.
 // Operasi tulis tetap dijaga requireAdmin di bawah + proxy.ts.
 export async function GET() {
-  return NextResponse.json({ projects: listProjects() });
+  return NextResponse.json({ projects: await listProjects() });
 }
 
 // POST: hanya admin. Body { name, url, testOwner?, testRepo?, testWorkflow?, testRef? }.
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const project = createProject(name, url, {
+  const project = await createProject(name, url, {
     testOwner,
     testRepo,
     testWorkflow,

@@ -19,8 +19,8 @@ export async function getSession(): Promise<SessionPayload | null> {
   if (!token) return null;
   const payload = await verifySession(token);
   if (!payload) return null;
-  // Pastikan user masih ada di store (mis. setelah reset tidak masalah).
-  const user = findUserById(payload.id);
+  // Pastikan user masih ada di database.
+  const user = await findUserById(payload.id);
   if (!user) return null;
   return { id: user.id, email: user.email, role: user.role };
 }

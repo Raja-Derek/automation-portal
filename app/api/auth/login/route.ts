@@ -46,7 +46,7 @@ export async function POST(req: Request) {
 
   // Hindari user-enumeration timing: tetap lakukan compare dummy jika user tak ada.
   // (Praktis: langsung 401 dengan pesan generik.)
-  const user = findUserByEmail(email);
+  const user = await findUserByEmail(email);
   if (!user) {
     // Dummy compare agar waktu respons mirip (opsional, murah).
     await verifyPassword(password, await hashPassword("dummy"));

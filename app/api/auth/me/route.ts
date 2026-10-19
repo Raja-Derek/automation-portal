@@ -11,7 +11,7 @@ export async function GET() {
   if (!session) {
     return NextResponse.json({ error: "Belum login." }, { status: 401 });
   }
-  const user = findUserById(session.id);
+  const user = await findUserById(session.id);
   if (!user) {
     return NextResponse.json({ error: "Belum login." }, { status: 401 });
   }

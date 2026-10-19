@@ -1,59 +1,58 @@
-// Penyimpanan project di sisi server (in-memory untuk demo tanpa DB).
+// Penyimpanan project di PostgreSQL (tabel `projects`).
 // Semua operasi tulis WAJIB lewat Route Handler yang sudah guard admin.
-// ASUMSI sama seperti users.ts: reset saat cold-start; produksi pakai DB.
+// Skema & data contoh dibuat otomatis oleh lib/db.ts (ensureSchema).
 
+import { createId, query } from "@/lib/db";
 import type { Project, TestStatus } from "@/types/project";
 
-function createId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+interface ProjectRow {
+  id: string;
+  name: string;
+  url: string;
+  created_at: Date;
+  test_status: TestStatus | null;
+  test_started_at: Date | null;
+  test_finished_at: Date | null;
+  test_html_url: string | null;
+  test_run_id: string | null;
+  test_owner: string | null;
+  test_repo: string | null;
+  test_workflow: string | null;
+  test_ref: string | null;
+  test_result_url: string | null;
 }
 
-const globalStore = globalThis as unknown as {
-  __apProjects?: Project[];
-  __apProjectsSeeded?: boolean;
-};
-
-function getStore(): Project[] {
-  if (!globalStore.__apProjects) globalStore.__apProjects = [];
-  return globalStore.__apProjects;
+function toProject(row: ProjectRow): Project {
+  // String kosong pada field opsional dianggap "tidak diatur" (undefined).
+  const opt = (v: string | null): string | undefined =>
+    v === null || v === "" ? undefined : v;
+  return {
+    id: row.id,
+    name: row.name,
+    url: row.url,
+    createdAt: row.created_at.toISOString(),
+    testStatus: row.test_status ?? undefined,
+    testStartedAt: row.test_started_at?.toISOString(),
+    testFinishedAt: row.test_finished_at?.toISOString(),
+    testHtmlUrl: opt(row.test_html_url),
+    testRunId: row.test_run_id === null ? undefined : Number(row.test_run_id),
+    testOwner: opt(row.test_owner),
+    testRepo: opt(row.test_repo),
+    testWorkflow: opt(row.test_workflow),
+    testRef: opt(row.test_ref),
+    testResultUrl: opt(row.test_result_url),
+  };
 }
 
-function setStore(next: Project[]): void {
-  globalStore.__apProjects = next;
-}
+const PROJECT_COLUMNS = `id, name, url, created_at, test_status, test_started_at,
+  test_finished_at, test_html_url, test_run_id, test_owner, test_repo,
+  test_workflow, test_ref, test_result_url`;
 
-/** Seed 2 contoh agar halaman tidak kosong saat pertama dibuka. */
-export function ensureProjectSeeded(): void {
-  if (globalStore.__apProjectsSeeded) return;
-  globalStore.__apProjectsSeeded = true;
-  if (getStore().length === 0) {
-    const now = new Date().toISOString();
-    setStore([
-      {
-        id: createId(),
-        name: "n8n Production",
-        url: "https://n8n.io",
-        createdAt: now,
-      },
-      {
-        id: createId(),
-        name: "Dokumentasi Next.js",
-        url: "https://nextjs.org/docs",
-        createdAt: now,
-      },
-    ]);
-  }
-}
-
-export function listProjects(): Project[] {
-  ensureProjectSeeded();
-  // Kembalikan salinan, paling baru di atas.
-  return [...getStore()].sort((a, b) =>
-    b.createdAt.localeCompare(a.createdAt),
+export async function listProjects(): Promise<Project[]> {
+  const rows = await query<ProjectRow>(
+    `SELECT ${PROJECT_COLUMNS} FROM projects ORDER BY created_at DESC`,
   );
+  return rows.map(toProject);
 }
 
 /** Target repo uji per-project (semua opsional, string kosong = tidak diatur). */
@@ -66,11 +65,10 @@ export interface ProjectTestTargetInput {
 }
 
 /** Normalisasi input target: trim, string kosong → undefined (tidak diatur). */
-function normalizeTestTarget(input: ProjectTestTargetInput): ProjectTestTargetInput {
-  const norm = (v: string | undefined): string | undefined => {
-    const t = (v ?? "").trim();
-    return t ? t : undefined;
-  };
+function normalizeTestTarget(
+  input: ProjectTestTargetInput,
+): Required<ProjectTestTargetInput> {
+  const norm = (v: string | undefined): string => (v ?? "").trim();
   return {
     testOwner: norm(input.testOwner),
     testRepo: norm(input.testRepo),
@@ -80,66 +78,77 @@ function normalizeTestTarget(input: ProjectTestTargetInput): ProjectTestTargetIn
   };
 }
 
-export function createProject(
+export async function createProject(
   name: string,
   url: string,
   test?: ProjectTestTargetInput,
-): Project {
-  ensureProjectSeeded();
-  const project: Project = {
-    id: createId(),
-    name: name.trim(),
-    url: url.trim(),
-    createdAt: new Date().toISOString(),
-    ...normalizeTestTarget(test ?? {}),
-  };
-  setStore([project, ...getStore()]);
-  return project;
+): Promise<Project> {
+  const t = normalizeTestTarget(test ?? {});
+  const rows = await query<ProjectRow>(
+    `INSERT INTO projects
+       (id, name, url, test_owner, test_repo, test_workflow, test_ref, test_result_url)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING ${PROJECT_COLUMNS}`,
+    [
+      createId(),
+      name.trim(),
+      url.trim(),
+      t.testOwner,
+      t.testRepo,
+      t.testWorkflow,
+      t.testRef,
+      t.testResultUrl,
+    ],
+  );
+  return toProject(rows[0]);
 }
 
-export function updateProject(
+export async function updateProject(
   id: string,
   name: string,
   url: string,
   test?: ProjectTestTargetInput,
-): Project | null {
-  ensureProjectSeeded();
-  let updated: Project | null = null;
-  const target = normalizeTestTarget(test ?? {});
-  setStore(
-    getStore().map((p) => {
-      if (p.id !== id) return p;
-      updated = {
-        ...p,
-        name: name.trim(),
-        url: url.trim(),
-        testOwner: target.testOwner,
-        testRepo: target.testRepo,
-        testWorkflow: target.testWorkflow,
-        testRef: target.testRef,
-        testResultUrl: target.testResultUrl,
-      };
-      return updated;
-    }),
+): Promise<Project | null> {
+  const t = normalizeTestTarget(test ?? {});
+  const rows = await query<ProjectRow>(
+    `UPDATE projects SET
+       name = $2, url = $3, test_owner = $4, test_repo = $5,
+       test_workflow = $6, test_ref = $7, test_result_url = $8
+     WHERE id = $1
+     RETURNING ${PROJECT_COLUMNS}`,
+    [
+      id,
+      name.trim(),
+      url.trim(),
+      t.testOwner,
+      t.testRepo,
+      t.testWorkflow,
+      t.testRef,
+      t.testResultUrl,
+    ],
   );
-  return updated;
+  return rows[0] ? toProject(rows[0]) : null;
 }
 
-export function deleteProject(id: string): boolean {
-  ensureProjectSeeded();
-  const before = getStore().length;
-  setStore(getStore().filter((p) => p.id !== id));
-  return getStore().length < before;
+export async function deleteProject(id: string): Promise<boolean> {
+  const rows = await query<{ id: string }>(
+    "DELETE FROM projects WHERE id = $1 RETURNING id",
+    [id],
+  );
+  return rows.length > 0;
 }
 
 /** Cari satu project berdasarkan ID (publik, untuk endpoint status uji). */
-export function findProject(id: string): Project | null {
-  ensureProjectSeeded();
-  return getStore().find((p) => p.id === id) ?? null;
+export async function findProject(id: string): Promise<Project | null> {
+  const rows = await query<ProjectRow>(
+    `SELECT ${PROJECT_COLUMNS} FROM projects WHERE id = $1`,
+    [id],
+  );
+  return rows[0] ? toProject(rows[0]) : null;
 }
 
 /** Update info uji GitHub Action untuk satu project. */
-export function updateProjectTest(
+export async function updateProjectTest(
   id: string,
   patch: Pick<
     Project,
@@ -149,15 +158,21 @@ export function updateProjectTest(
     | "testHtmlUrl"
     | "testRunId"
   > & { testStatus: TestStatus },
-): Project | null {
-  ensureProjectSeeded();
-  let updated: Project | null = null;
-  setStore(
-    getStore().map((p) => {
-      if (p.id !== id) return p;
-      updated = { ...p, ...patch };
-      return updated;
-    }),
+): Promise<Project | null> {
+  const rows = await query<ProjectRow>(
+    `UPDATE projects SET
+       test_status = $2, test_started_at = $3, test_finished_at = $4,
+       test_html_url = $5, test_run_id = $6
+     WHERE id = $1
+     RETURNING ${PROJECT_COLUMNS}`,
+    [
+      id,
+      patch.testStatus,
+      patch.testStartedAt ?? null,
+      patch.testFinishedAt ?? null,
+      patch.testHtmlUrl ?? null,
+      patch.testRunId ?? null,
+    ],
   );
-  return updated;
+  return rows[0] ? toProject(rows[0]) : null;
 }

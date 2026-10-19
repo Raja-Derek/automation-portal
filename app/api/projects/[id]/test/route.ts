@@ -20,7 +20,7 @@ type Ctx = RouteContext<"/api/projects/[id]/test">;
 // GET: kembalikan project + status uji terkini (polling GitHub bila running).
 export async function GET(_req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
-  const project = findProject(id);
+  const project = await findProject(id);
   if (!project) {
     return NextResponse.json({ error: "Project tidak ditemukan." }, { status: 404 });
   }
@@ -51,28 +51,26 @@ export async function GET(_req: Request, ctx: Ctx) {
 
   // Run masih antre/berjalan → update URL run bila sudah diketahui.
   if (run.status !== "completed") {
-    const updated =
-      updateProjectTest(project.id, {
-        testStatus: "running",
-        testStartedAt: project.testStartedAt ?? new Date().toISOString(),
-        testFinishedAt: undefined,
-        testHtmlUrl: run.html_url,
-        testRunId: run.id,
-      }) ?? project;
-    return NextResponse.json({ project: updated });
+    const updated = await updateProjectTest(project.id, {
+      testStatus: "running",
+      testStartedAt: project.testStartedAt ?? new Date().toISOString(),
+      testFinishedAt: undefined,
+      testHtmlUrl: run.html_url,
+      testRunId: run.id,
+    });
+    return NextResponse.json({ project: updated ?? project });
   }
 
   // Run selesai → petakan conclusion ke Tested (success) / gagal.
   const success = run.conclusion === "success";
-  const updated =
-    updateProjectTest(project.id, {
-      testStatus: success ? "success" : "failed",
-      testStartedAt: project.testStartedAt ?? run.created_at,
-      testFinishedAt: new Date().toISOString(),
-      testHtmlUrl: run.html_url,
-      testRunId: run.id,
-    }) ?? project;
-  return NextResponse.json({ project: updated });
+  const updated = await updateProjectTest(project.id, {
+    testStatus: success ? "success" : "failed",
+    testStartedAt: project.testStartedAt ?? run.created_at,
+    testFinishedAt: new Date().toISOString(),
+    testHtmlUrl: run.html_url,
+    testRunId: run.id,
+  });
+  return NextResponse.json({ project: updated ?? project });
 }
 
 // POST: trigger workflow_dispatch (admin saja).
@@ -81,7 +79,7 @@ export async function POST(_req: Request, ctx: Ctx) {
   if ("error" in auth) return auth.error;
 
   const { id } = await ctx.params;
-  const project = findProject(id);
+  const project = await findProject(id);
   if (!project) {
     return NextResponse.json({ error: "Project tidak ditemukan." }, { status: 404 });
   }
@@ -96,7 +94,7 @@ export async function POST(_req: Request, ctx: Ctx) {
     return NextResponse.json({ error: dispatched.message }, { status: 502 });
   }
 
-  const updated = updateProjectTest(project.id, {
+  const updated = await updateProjectTest(project.id, {
     testStatus: "running",
     testStartedAt: new Date().toISOString(),
     testFinishedAt: undefined,

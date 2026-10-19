@@ -68,7 +68,7 @@ export async function PUT(req: Request, ctx: Ctx) {
     );
   }
 
-  const updated = updateProject(id, name, url, {
+  const updated = await updateProject(id, name, url, {
     testOwner,
     testRepo,
     testWorkflow,
@@ -93,7 +93,7 @@ export async function DELETE(_req: Request, ctx: Ctx) {
   if (!id) {
     return NextResponse.json({ error: "ID tidak valid." }, { status: 400 });
   }
-  const ok = deleteProject(id);
+  const ok = await deleteProject(id);
   if (!ok) {
     return NextResponse.json(
       { error: "Project tidak ditemukan." },

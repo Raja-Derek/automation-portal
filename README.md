@@ -1,6 +1,6 @@
 # Automation Portal
 
-Aplikasi web untuk mengelola daftar link project automasi. Dibuat dengan **Next.js (App Router) + TypeScript + Tailwind CSS**, siap deploy ke Vercel tanpa konfigurasi tambahan. Data tersimpan di `localStorage` browser.
+Aplikasi web untuk mengelola daftar link project automasi. Dibuat dengan **Next.js (App Router) + TypeScript + Tailwind CSS**. Data project & user tersimpan di **database PostgreSQL** (Supabase/Neon) melalui driver `pg`.
 
 ## Fitur
 
@@ -8,7 +8,7 @@ Aplikasi web untuk mengelola daftar link project automasi. Dibuat dengan **Next.
 - **Daftar Card responsif**: grid 1 kolom di mobile, 2–3 kolom di desktop. Menampilkan nama + URL. State kosong: "Belum ada project".
 - **Buka di tab baru**: klik card membuka link dengan `target="_blank" rel="noopener noreferrer"`. Tombol Edit/Hapus memakai `stopPropagation`.
 - **Edit & Hapus**: Edit via modal terisi data lama (Simpan/Batal), Hapus via dialog konfirmasi.
-- **Penyimpanan**: `localStorage`, hanya diakses di client (`useEffect`) agar aman SSR.
+- **Penyimpanan**: PostgreSQL (tabel `users` & `projects`). Skema + akun default dibuat otomatis saat request pertama.
 
 ## Struktur Folder
 
@@ -64,9 +64,9 @@ npm run lint
 
 ## Deploy ke Vercel
 
-Tanpa konfigurasi tambahan (Vercel otomatis mendeteksi Next.js):
-
-1. Push proyek ke GitHub:
+1. Siapkan database PostgreSQL (Supabase/Neon), ambil connection string.
+2. Set env `DATABASE_URL` (dan `JWT_SECRET`) di Vercel → **Project → Settings → Environment Variables**.
+3. Push proyek ke GitHub:
    ```bash
    git init
    git add .
@@ -75,13 +75,62 @@ Tanpa konfigurasi tambahan (Vercel otomatis mendeteksi Next.js):
    git remote add origin https://github.com/USERNAME/automation-portal.git
    git push -u origin main
    ```
-2. Buka [vercel.com](https://vercel.com) → **Add New → Project → Import** repo tersebut.
-3. Framework Preset otomatis **Next.js**. Biarkan Build Command `npm run build`, Output default.
-4. Klik **Deploy**. Selesai — setiap push ke `main` akan auto-deploy.
+4. Buka [vercel.com](https://vercel.com) → **Add New → Project → Import** repo tersebut.
+5. Framework Preset otomatis **Next.js**. Biarkan Build Command `npm run build`, Output default.
+6. Klik **Deploy**. Selesai — setiap push ke `main` akan auto-deploy.
+
+## Konfigurasi Environment
+
+Salin `.env.example` ke `.env.local` lalu isi:
+
+- `DATABASE_URL` — **wajib**, connection string PostgreSQL. Untuk Vercel serverless gunakan pooled connection (Supabase port `6543`).
+- `JWT_SECRET` — **wajib di produksi**, secret JWT minimal 32 karakter.
+- `GITHUB_*` — opsional, default target repo uji GitHub Action.
+
+## Menjalankan dengan Docker
+
+Prerequisite: Docker (Docker Desktop / OrbStack / Colima).
+
+```bash
+# Build + jalankan (memakai DATABASE_URL dari .env — mis. Supabase)
+docker compose up -d --build
+
+# Lihat log / status
+docker compose logs -f app
+docker compose ps
+```
+
+Buka http://localhost:3000.
+
+### PostgreSQL lokal (opsional)
+
+Tanpa Supabase/Neon, jalankan Postgres di dalam compose:
+
+```bash
+docker compose --profile local-db up -d --build
+```
+
+Lalu set di `.env`:
+
+```env
+DATABASE_URL=postgresql://postgres:postgres@db:5432/automation_portal
+PGSSLMODE=disable
+```
+
+Data Postgres disimpan di volume `pgdata` (bertahan antar restart). Hapus dengan `docker compose --profile local-db down -v`.
+
+### Build image manual
+
+```bash
+docker build -t automation-portal:latest .
+docker run -d -p 3000:3000 --env-file .env automation-portal:latest
+```
+
+Catatan: image memakai `output: "standalone"` (lihat `next.config.ts`), berjalan sebagai user non-root, dan punya healthcheck ke `/api/projects`. Env `NEXT_PUBLIC_*` di-inline saat build; secret seperti `DATABASE_URL`/`JWT_SECRET` dibaca saat runtime.
 
 ## Cara Pakai
 
 1. Isi **Nama Project** dan **Link Project**, klik **Simpan Project**.
 2. Klik card untuk membuka link di tab baru.
 3. Klik **Edit** untuk ubah, **Hapus** → konfirmasi **Ya, Hapus**.
-4. Refresh browser — data tetap ada (localStorage key `automation-portal:projects`).
+4. Refresh browser — data tetap ada karena tersimpan di database.
