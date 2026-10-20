@@ -1,5 +1,26 @@
 // Tipe data utama untuk satu project.
-// Disimpan di localStorage sebagai array JSON.
+// Disimpan di PostgreSQL (tabel `projects`).
+
+/** Lingkungan deployment — dipakai untuk badge pada card. */
+export type ProjectEnvironment = "dev" | "staging" | "production" | "sandbox";
+
+/** Opsi environment + label yang ditampilkan di UI. */
+export const PROJECT_ENVIRONMENTS: ReadonlyArray<{
+  value: ProjectEnvironment;
+  label: string;
+}> = [
+  { value: "dev", label: "Dev" },
+  { value: "staging", label: "Staging" },
+  { value: "production", label: "Production" },
+  { value: "sandbox", label: "Prod Sandbox" },
+];
+
+/** Saran kategori untuk form — tetap bebas diketik. */
+export const CATEGORY_SUGGESTIONS: readonly string[] = [
+  "Salesforce CRM",
+  "Web Apps",
+  "Core Services & API",
+];
 
 export interface Project {
   /** ID unik project (dibuat dengan crypto.randomUUID / fallback). */
@@ -10,6 +31,12 @@ export interface Project {
   url: string;
   /** Waktu pembuatan dalam ISO string, untuk urutan tampilan. */
   createdAt: string;
+  /** Kategori bebas (mis. "Salesforce CRM"), maks. 60 karakter. */
+  category?: string;
+  /** Lingkungan deployment, untuk badge warna. */
+  environment?: ProjectEnvironment;
+  /** Deskripsi singkat, maks. 160 karakter. */
+  description?: string;
   /** Status uji GitHub Action terakhir (opsional, diisi server). */
   testStatus?: TestStatus;
   /** Waktu mulai uji terakhir (ISO string). */
@@ -39,6 +66,12 @@ export type TestStatus = "idle" | "running" | "success" | "failed";
 export interface ProjectFormValues {
   name: string;
   url: string;
+  /** Kategori bebas, maks. 60 karakter. */
+  category?: string;
+  /** Environment terpilih (kosong = tidak diatur). */
+  environment?: string;
+  /** Deskripsi singkat, maks. 160 karakter. */
+  description?: string;
   /** Opsional: target repo uji per-project (kosong = pakai default env server). */
   testOwner?: string;
   testRepo?: string;

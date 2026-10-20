@@ -75,15 +75,86 @@ details[open] summary .summary-chevron {
   .btn {
     @apply inline-flex select-none items-center justify-center gap-1.5 rounded-xl text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
   }
+  /* Primary: gradasi ink → indigo dengan inner highlight tipis. */
   .btn-primary {
-    @apply bg-slate-900 px-4 py-2.5 text-white hover:bg-slate-700 focus-visible:ring-slate-900;
+    @apply relative isolate overflow-hidden border border-white/10 px-4 py-2.5 text-white focus-visible:ring-indigo-600;
+    background-image: linear-gradient(
+      135deg,
+      #0f172a 0%,
+      #1e1b4b 48%,
+      #4338ca 100%
+    );
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.12) inset,
+      0 10px 24px -14px rgba(30, 27, 75, 0.9);
+    transition:
+      transform 0.18s ease,
+      box-shadow 0.18s ease,
+      filter 0.18s ease;
   }
+  .btn-primary::before {
+    content: "";
+    @apply pointer-events-none absolute inset-x-px top-px h-1/2 rounded-[inherit];
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.16),
+      transparent
+    );
+  }
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.16) inset,
+      0 16px 30px -16px rgba(49, 46, 129, 0.9);
+    filter: saturate(1.05);
+  }
+  .btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
   .btn-secondary {
-    @apply border border-slate-200 bg-white px-4 py-2.5 text-slate-700 hover:bg-slate-50 focus-visible:ring-slate-400;
+    @apply border border-slate-200 px-4 py-2.5 text-slate-700 shadow-sm hover:border-slate-300 hover:text-slate-900 focus-visible:ring-slate-400;
+    background-image: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    transition:
+      transform 0.18s ease,
+      box-shadow 0.18s ease,
+      border-color 0.18s ease,
+      color 0.18s ease;
   }
+  .btn-secondary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 16px -14px rgba(15, 23, 42, 0.55);
+  }
+  .btn-secondary:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
   /* Varian tinted: aksi sekunder yang tetap jelas tanpa menyaingi primary. */
   .btn-tint {
-    @apply border border-blue-200 bg-blue-50 px-4 py-2.5 text-blue-700 hover:bg-blue-100 focus-visible:ring-blue-400;
+    @apply border border-indigo-200/80 px-4 py-2.5 text-indigo-700 shadow-sm focus-visible:ring-indigo-400;
+    background-image: linear-gradient(
+      135deg,
+      #ffffff 0%,
+      #eef2ff 55%,
+      #e0e7ff 100%
+    );
+    transition:
+      transform 0.18s ease,
+      box-shadow 0.18s ease,
+      border-color 0.18s ease;
+  }
+  .btn-tint:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: #a5b4fc;
+    box-shadow: 0 10px 20px -16px rgba(67, 56, 202, 0.55);
+  }
+  .btn-tint:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  /* Aksi ikon pada card: permukaan putih dengan bayangan tipis. */
+  .btn-card-action {
+    @apply border border-slate-200/80 bg-white/80 text-slate-500 shadow-[0_2px_8px_-6px_rgba(15,23,42,0.35)] hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white hover:text-slate-900 focus-visible:ring-indigo-500;
   }
   .btn-danger {
     @apply bg-rose-600 px-4 py-2.5 text-white hover:bg-rose-500 focus-visible:ring-rose-500;
@@ -113,6 +184,57 @@ details[open] summary .summary-chevron {
   }
   .badge-rose {
     @apply bg-rose-50 text-rose-700;
+  }
+
+  /* Kartu project: gradasi lembut + rail aksen di tepi atas.
+     Nilai variabel diisi per project dari ProjectCard. */
+  .project-card {
+    background-color: #ffffff;
+    background-image:
+      radial-gradient(
+        90% 80% at 0% 100%,
+        color-mix(in srgb, var(--card-accent-2, #0ea5e9) 8%, transparent) 0%,
+        transparent 62%
+      ),
+      radial-gradient(
+        120% 90% at 100% 0%,
+        var(--card-glow, rgba(79, 70, 229, 0.12)) 0%,
+        transparent 58%
+      ),
+      linear-gradient(
+        155deg,
+        var(--card-from, #f8fafc) 0%,
+        #ffffff 52%,
+        var(--card-to, #ffffff) 100%
+      );
+    border-color: color-mix(
+      in srgb,
+      var(--card-accent, #4f46e5) 12%,
+      #e2e8f0
+    );
+  }
+  .project-card::before {
+    content: "";
+    @apply pointer-events-none absolute inset-x-0 top-0 h-[3px] rounded-t-2xl;
+    background: linear-gradient(
+      90deg,
+      var(--card-accent, #4f46e5),
+      var(--card-accent-2, #0ea5e9)
+    );
+    opacity: 0.72;
+    transition: opacity 0.25s ease;
+  }
+  .project-card:hover::before {
+    opacity: 1;
+  }
+  .project-card:hover {
+    border-color: color-mix(
+      in srgb,
+      var(--card-accent, #4f46e5) 26%,
+      #e2e8f0
+    );
+    box-shadow: 0 20px 40px -28px
+      color-mix(in srgb, var(--card-accent, #4f46e5) 55%, transparent);
   }
 
   /* Skeleton loading dengan efek shimmer. */

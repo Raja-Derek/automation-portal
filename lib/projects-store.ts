@@ -3,13 +3,16 @@
 // Skema & data contoh dibuat otomatis oleh lib/db.ts (ensureSchema).
 
 import { createId, query } from "@/lib/db";
-import type { Project, TestStatus } from "@/types/project";
+import type { Project, ProjectEnvironment, TestStatus } from "@/types/project";
 
 interface ProjectRow {
   id: string;
   name: string;
   url: string;
   created_at: Date;
+  category: string | null;
+  environment: string | null;
+  description: string | null;
   test_status: TestStatus | null;
   test_started_at: Date | null;
   test_finished_at: Date | null;
@@ -22,15 +25,20 @@ interface ProjectRow {
   test_result_url: string | null;
 }
 
+// String kosong pada kolom opsional berarti "tidak diatur" → undefined.
+function opt(value: string | null): string | undefined {
+  return value === null || value === "" ? undefined : value;
+}
+
 function toProject(row: ProjectRow): Project {
-  // String kosong pada field opsional dianggap "tidak diatur" (undefined).
-  const opt = (v: string | null): string | undefined =>
-    v === null || v === "" ? undefined : v;
   return {
     id: row.id,
     name: row.name,
     url: row.url,
     createdAt: row.created_at.toISOString(),
+    category: opt(row.category),
+    environment: (opt(row.environment) as ProjectEnvironment | undefined) ?? undefined,
+    description: opt(row.description),
     testStatus: row.test_status ?? undefined,
     testStartedAt: row.test_started_at?.toISOString(),
     testFinishedAt: row.test_finished_at?.toISOString(),
@@ -44,9 +52,9 @@ function toProject(row: ProjectRow): Project {
   };
 }
 
-const PROJECT_COLUMNS = `id, name, url, created_at, test_status, test_started_at,
-  test_finished_at, test_html_url, test_run_id, test_owner, test_repo,
-  test_workflow, test_ref, test_result_url`;
+const PROJECT_COLUMNS = `id, name, url, created_at, category, environment,
+  description, test_status, test_started_at, test_finished_at, test_html_url,
+  test_run_id, test_owner, test_repo, test_workflow, test_ref, test_result_url`;
 
 export async function listProjects(): Promise<Project[]> {
   const rows = await query<ProjectRow>(
@@ -55,8 +63,15 @@ export async function listProjects(): Promise<Project[]> {
   return rows.map(toProject);
 }
 
-/** Target repo uji per-project (semua opsional, string kosong = tidak diatur). */
-export interface ProjectTestTargetInput {
+/**
+ * Input metadata project. Semua opsional; string kosong = tidak diatur
+ * (dikosongkan dari database, bukan disimpan sebagai string kosong).
+ */
+export interface ProjectInput {
+  category?: string;
+  environment?: string;
+  description?: string;
+  /** Target repo uji per-project. */
   testOwner?: string;
   testRepo?: string;
   testWorkflow?: string;
@@ -64,12 +79,13 @@ export interface ProjectTestTargetInput {
   testResultUrl?: string;
 }
 
-/** Normalisasi input target: trim, string kosong → undefined (tidak diatur). */
-function normalizeTestTarget(
-  input: ProjectTestTargetInput,
-): Required<ProjectTestTargetInput> {
+/** Normalisasi input: trim, string kosong → string kosong (NULL di SQL). */
+function normalize(input: ProjectInput): Required<ProjectInput> {
   const norm = (v: string | undefined): string => (v ?? "").trim();
   return {
+    category: norm(input.category),
+    environment: norm(input.environment),
+    description: norm(input.description),
     testOwner: norm(input.testOwner),
     testRepo: norm(input.testRepo),
     testWorkflow: norm(input.testWorkflow),
@@ -81,23 +97,27 @@ function normalizeTestTarget(
 export async function createProject(
   name: string,
   url: string,
-  test?: ProjectTestTargetInput,
+  input?: ProjectInput,
 ): Promise<Project> {
-  const t = normalizeTestTarget(test ?? {});
+  const v = normalize(input ?? {});
   const rows = await query<ProjectRow>(
     `INSERT INTO projects
-       (id, name, url, test_owner, test_repo, test_workflow, test_ref, test_result_url)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       (id, name, url, category, environment, description,
+        test_owner, test_repo, test_workflow, test_ref, test_result_url)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
      RETURNING ${PROJECT_COLUMNS}`,
     [
       createId(),
       name.trim(),
       url.trim(),
-      t.testOwner,
-      t.testRepo,
-      t.testWorkflow,
-      t.testRef,
-      t.testResultUrl,
+      v.category,
+      v.environment,
+      v.description,
+      v.testOwner,
+      v.testRepo,
+      v.testWorkflow,
+      v.testRef,
+      v.testResultUrl,
     ],
   );
   return toProject(rows[0]);
@@ -107,24 +127,28 @@ export async function updateProject(
   id: string,
   name: string,
   url: string,
-  test?: ProjectTestTargetInput,
+  input?: ProjectInput,
 ): Promise<Project | null> {
-  const t = normalizeTestTarget(test ?? {});
+  const v = normalize(input ?? {});
   const rows = await query<ProjectRow>(
     `UPDATE projects SET
-       name = $2, url = $3, test_owner = $4, test_repo = $5,
-       test_workflow = $6, test_ref = $7, test_result_url = $8
+       name = $2, url = $3, category = $4, environment = $5, description = $6,
+       test_owner = $7, test_repo = $8, test_workflow = $9, test_ref = $10,
+       test_result_url = $11
      WHERE id = $1
      RETURNING ${PROJECT_COLUMNS}`,
     [
       id,
       name.trim(),
       url.trim(),
-      t.testOwner,
-      t.testRepo,
-      t.testWorkflow,
-      t.testRef,
-      t.testResultUrl,
+      v.category,
+      v.environment,
+      v.description,
+      v.testOwner,
+      v.testRepo,
+      v.testWorkflow,
+      v.testRef,
+      v.testResultUrl,
     ],
   );
   return rows[0] ? toProject(rows[0]) : null;

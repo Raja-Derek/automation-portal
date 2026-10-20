@@ -1,9 +1,14 @@
 // Util validasi form project.
 // Dipakai oleh form tambah maupun modal edit agar aturannya konsisten.
 
+import { PROJECT_ENVIRONMENTS } from "@/types/project";
+
 export interface ValidationResult {
   name?: string;
   url?: string;
+  category?: string;
+  environment?: string;
+  description?: string;
   testOwner?: string;
   testRepo?: string;
   testWorkflow?: string;
@@ -65,6 +70,56 @@ export function validateProjectForm(
 }
 
 const GITHUB_NAME_RE = /^[A-Za-z0-9_.-]+$/;
+
+/** Karakter yang boleh dipakai pada nama kategori. */
+const CATEGORY_RE = /^[\p{L}\p{N} &/.-]+$/u;
+
+/** Validasi kategori (opsional, maks. 60 karakter). */
+export function validateCategory(category: string): string | undefined {
+  const trimmed = category.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length > 60) return "Kategori maksimal 60 karakter.";
+  if (!CATEGORY_RE.test(trimmed)) {
+    return "Kategori hanya boleh berisi huruf, angka, spasi, &, /, titik, atau strip.";
+  }
+  return undefined;
+}
+
+/** Validasi environment (opsional, harus salah satu opsi terdaftar). */
+export function validateEnvironment(environment: string): string | undefined {
+  const trimmed = environment.trim();
+  if (!trimmed) return undefined;
+  if (!PROJECT_ENVIRONMENTS.some((e) => e.value === trimmed)) {
+    return "Environment tidak dikenal.";
+  }
+  return undefined;
+}
+
+/** Validasi deskripsi singkat (opsional, maks. 160 karakter). */
+export function validateDescription(
+  description: string,
+): string | undefined {
+  const trimmed = description.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length > 160) return "Deskripsi maksimal 160 karakter.";
+  return undefined;
+}
+
+/** Validasi metadata project (kategori, environment, deskripsi). */
+export function validateProjectMeta(
+  category: string,
+  environment: string,
+  description: string,
+): ValidationResult {
+  const errors: ValidationResult = {};
+  const categoryError = validateCategory(category);
+  const environmentError = validateEnvironment(environment);
+  const descriptionError = validateDescription(description);
+  if (categoryError) errors.category = categoryError;
+  if (environmentError) errors.environment = environmentError;
+  if (descriptionError) errors.description = descriptionError;
+  return errors;
+}
 
 /** Validasi owner repo GitHub (opsional, kosong = pakai default server). */
 export function validateTestOwner(owner: string): string | undefined {

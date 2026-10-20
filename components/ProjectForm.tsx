@@ -7,10 +7,15 @@
 
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { validateProjectForm, validateTestTarget } from "@/lib/validation";
+import {
+  validateProjectForm,
+  validateProjectMeta,
+  validateTestTarget,
+} from "@/lib/validation";
 import type { ValidationResult } from "@/lib/validation";
+import type { ProjectInput } from "@/lib/projects-store";
 import type { MutateResult } from "@/hooks/useProjects";
-import type { ProjectFormValues } from "@/types/project";
+import { CATEGORY_SUGGESTIONS, PROJECT_ENVIRONMENTS } from "@/types/project";
 import {
   ChevronDownIcon,
   GearIcon,
@@ -18,22 +23,28 @@ import {
   SpinnerIcon,
 } from "@/components/icons";
 
-type TestTargetInput = Pick<
-  ProjectFormValues,
-  "testOwner" | "testRepo" | "testWorkflow" | "testRef" | "testResultUrl"
->;
-
 interface ProjectFormProps {
   onAdd: (
     name: string,
     url: string,
-    test?: TestTargetInput,
+    input?: ProjectInput,
   ) => Promise<MutateResult>;
+  // Dipanggil setelah server menyimpan project (dipakai modal untuk menutup).
+  onSuccess?: () => void;
+  // Bila diberikan, tombol Batal ditampilkan di footer form.
+  onCancel?: () => void;
 }
 
-export default function ProjectForm({ onAdd }: ProjectFormProps) {
+export default function ProjectForm({
+  onAdd,
+  onSuccess,
+  onCancel,
+}: ProjectFormProps) {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
+  const [category, setCategory] = useState("");
+  const [environment, setEnvironment] = useState("");
+  const [description, setDescription] = useState("");
   // Target repo uji per-project (opsional — kosong = pakai default server).
   const [testOwner, setTestOwner] = useState("");
   const [testRepo, setTestRepo] = useState("");
@@ -52,6 +63,7 @@ export default function ProjectForm({ onAdd }: ProjectFormProps) {
     // Validasi client lebih dulu.
     const validation: ValidationResult = {
       ...validateProjectForm(name, url),
+      ...validateProjectMeta(category, environment, description),
       ...validateTestTarget(testOwner, testRepo, testWorkflow, testRef, testResultUrl),
     };
     setErrors(validation);
@@ -60,6 +72,9 @@ export default function ProjectForm({ onAdd }: ProjectFormProps) {
     setBusy(true);
     try {
       const res = await onAdd(name, url, {
+        category,
+        environment,
+        description,
         testOwner,
         testRepo,
         testWorkflow,
@@ -75,34 +90,31 @@ export default function ProjectForm({ onAdd }: ProjectFormProps) {
       // Sukses → kosongkan form.
       setName("");
       setUrl("");
+      setCategory("");
+      setEnvironment("");
+      setDescription("");
       setTestOwner("");
       setTestRepo("");
       setTestWorkflow("");
       setTestRef("");
       setTestResultUrl("");
       setErrors({});
+      setServerError(null);
+      onSuccess?.();
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="card p-5 sm:p-6">
-      <div className="flex items-center gap-2.5">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-          <PlusIcon className="h-4.5 w-4.5" />
-        </span>
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">
-            Tambah Project Baru
-          </h2>
-          <p className="text-sm text-slate-500">
-            Hanya admin yang dapat menambah project.
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+    <form
+      onSubmit={handleSubmit}
+      noValidate
+      className="flex min-h-0 flex-1 flex-col"
+    >
+      {/* Area gulir: semua field, error server, dan detail opsional. */}
+      <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5 sm:px-6">
+      <div className="grid gap-4 sm:grid-cols-2">
         {/* Input nama project */}
         <div>
           <label htmlFor="project-name" className="label">
@@ -160,6 +172,99 @@ export default function ProjectForm({ onAdd }: ProjectFormProps) {
           )}
         </div>
 
+        {/* Kategori + environment */}
+        <div>
+          <label htmlFor="project-category" className="label">
+            Kategori{" "}
+            <span className="text-xs font-normal text-slate-500">(opsional)</span>
+          </label>
+          <input
+            id="project-category"
+            type="text"
+            list="project-category-suggestions"
+            value={category}
+            maxLength={60}
+            onChange={(e) => setCategory(e.target.value)}
+            placeholder="cth: Salesforce CRM"
+            aria-invalid={Boolean(errors.category)}
+            aria-describedby={errors.category ? "project-category-error" : undefined}
+            className={`input ${errors.category ? "input-invalid" : ""}`}
+          />
+          <datalist id="project-category-suggestions">
+            {CATEGORY_SUGGESTIONS.map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
+          {errors.category ? (
+            <p id="project-category-error" className="mt-1.5 text-xs text-rose-600">
+              {errors.category}
+            </p>
+          ) : (
+            <p className="mt-1.5 text-xs text-slate-500">
+              Dipakai untuk chip filter di halaman katalog.
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label htmlFor="project-environment" className="label">
+            Environment
+          </label>
+          <select
+            id="project-environment"
+            value={environment}
+            onChange={(e) => setEnvironment(e.target.value)}
+            className={`input ${errors.environment ? "input-invalid" : ""}`}
+          >
+            <option value="">Tidak diatur</option>
+            {PROJECT_ENVIRONMENTS.map((env) => (
+              <option key={env.value} value={env.value}>
+                {env.label}
+              </option>
+            ))}
+          </select>
+          {errors.environment ? (
+            <p className="mt-1.5 text-xs text-rose-600">{errors.environment}</p>
+          ) : (
+            <p className="mt-1.5 text-xs text-slate-500">
+              Menentukan warna badge pada card.
+            </p>
+          )}
+        </div>
+
+        {/* Deskripsi singkat */}
+        <div className="sm:col-span-2">
+          <label htmlFor="project-description" className="label">
+            Deskripsi{" "}
+            <span className="text-xs font-normal text-slate-500">(opsional)</span>
+          </label>
+          <input
+            id="project-description"
+            type="text"
+            value={description}
+            maxLength={160}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="cth: Instance QA untuk alur sales & service."
+            aria-invalid={Boolean(errors.description)}
+            aria-describedby={
+              errors.description ? "project-description-error" : undefined
+            }
+            className={`input ${errors.description ? "input-invalid" : ""}`}
+          />
+          <div className="mt-1.5 flex items-center justify-between">
+            {errors.description ? (
+              <p id="project-description-error" className="text-xs text-rose-600">
+                {errors.description}
+              </p>
+            ) : (
+              <span />
+            )}
+            <span className="text-xs text-slate-500">
+              {description.trim().length}/160
+            </span>
+          </div>
+        </div>
+
         {/* Input link halaman hasil testing (opsional) */}
         <div className="sm:col-span-2">
           <label htmlFor="project-test-result-url" className="label">
@@ -198,14 +303,14 @@ export default function ProjectForm({ onAdd }: ProjectFormProps) {
       {serverError && (
         <p
           role="alert"
-          className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-700"
+          className="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-700"
         >
           {serverError}
         </p>
       )}
 
       {/* Target repo uji — opsional per project */}
-      <details className="mt-4 rounded-xl border border-slate-200 bg-slate-50/60">
+      <details className="rounded-xl border border-slate-200 bg-slate-50/60">
         <summary className="flex items-center justify-between gap-2 px-4 py-3 text-sm font-semibold text-slate-700">
           <span className="flex min-w-0 items-center gap-2">
             <GearIcon className="h-4 w-4 shrink-0 text-slate-400" />
@@ -291,9 +396,25 @@ export default function ProjectForm({ onAdd }: ProjectFormProps) {
           dispatch hanya mengirim branch.
         </p>
       </details>
+      </div>
 
-      <div className="mt-5 flex justify-end">
-        <button type="submit" disabled={busy} className="btn btn-primary w-full sm:w-auto">
+      {/* Footer aksi — menempel di bawah area gulir. */}
+      <div className="flex flex-col-reverse gap-2 border-t border-slate-100 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="btn btn-secondary w-full sm:w-auto"
+          >
+            Batal
+          </button>
+        )}
+        <button
+          type="submit"
+          disabled={busy}
+          className="btn btn-primary w-full sm:w-auto"
+        >
           {busy ? (
             <>
               <SpinnerIcon className="h-4 w-4" />

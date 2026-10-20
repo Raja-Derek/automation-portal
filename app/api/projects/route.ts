@@ -3,7 +3,11 @@
 
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/session";
-import { validateProjectForm, validateTestTarget } from "@/lib/validation";
+import {
+  validateProjectForm,
+  validateProjectMeta,
+  validateTestTarget,
+} from "@/lib/validation";
 import { createProject, listProjects } from "@/lib/projects-store";
 
 // GET: publik — pengunjung tanpa login boleh melihat daftar project.
@@ -12,7 +16,8 @@ export async function GET() {
   return NextResponse.json({ projects: await listProjects() });
 }
 
-// POST: hanya admin. Body { name, url, testOwner?, testRepo?, testWorkflow?, testRef? }.
+// POST: hanya admin. Body { name, url, category?, environment?, description?,
+// testOwner?, testRepo?, testWorkflow?, testRef?, testResultUrl? }.
 export async function POST(req: Request) {
   const auth = await requireAdmin();
   if ("error" in auth) return auth.error;
@@ -28,6 +33,9 @@ export async function POST(req: Request) {
   const b = body as Record<string, unknown>;
   const name = str(b.name);
   const url = str(b.url);
+  const category = str(b.category);
+  const environment = str(b.environment);
+  const description = str(b.description);
   const testOwner = str(b.testOwner);
   const testRepo = str(b.testRepo);
   const testWorkflow = str(b.testWorkflow);
@@ -38,6 +46,7 @@ export async function POST(req: Request) {
   // tapi server tidak pernah percaya input client.
   const errors = {
     ...validateProjectForm(name, url),
+    ...validateProjectMeta(category, environment, description),
     ...validateTestTarget(testOwner, testRepo, testWorkflow, testRef, testResultUrl),
   };
   if (Object.values(errors).some(Boolean)) {
@@ -48,6 +57,9 @@ export async function POST(req: Request) {
   }
 
   const project = await createProject(name, url, {
+    category,
+    environment,
+    description,
     testOwner,
     testRepo,
     testWorkflow,

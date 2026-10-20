@@ -3,7 +3,11 @@
 
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/session";
-import { validateProjectForm, validateTestTarget } from "@/lib/validation";
+import {
+  validateProjectForm,
+  validateProjectMeta,
+  validateTestTarget,
+} from "@/lib/validation";
 import { deleteProject, updateProject } from "@/lib/projects-store";
 
 type Ctx = RouteContext<"/api/projects/[id]">;
@@ -11,6 +15,9 @@ type Ctx = RouteContext<"/api/projects/[id]">;
 interface UpdateBody {
   name: string;
   url: string;
+  category: string;
+  environment: string;
+  description: string;
   testOwner: string;
   testRepo: string;
   testWorkflow: string;
@@ -22,6 +29,9 @@ async function readBody(req: Request): Promise<UpdateBody> {
   const empty: UpdateBody = {
     name: "",
     url: "",
+    category: "",
+    environment: "",
+    description: "",
     testOwner: "",
     testRepo: "",
     testWorkflow: "",
@@ -34,6 +44,9 @@ async function readBody(req: Request): Promise<UpdateBody> {
     return {
       name: str(body.name),
       url: str(body.url),
+      category: str(body.category),
+      environment: str(body.environment),
+      description: str(body.description),
       testOwner: str(body.testOwner),
       testRepo: str(body.testRepo),
       testWorkflow: str(body.testWorkflow),
@@ -55,10 +68,21 @@ export async function PUT(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "ID tidak valid." }, { status: 400 });
   }
 
-  const { name, url, testOwner, testRepo, testWorkflow, testRef, testResultUrl } =
-    await readBody(req);
+  const {
+    name,
+    url,
+    category,
+    environment,
+    description,
+    testOwner,
+    testRepo,
+    testWorkflow,
+    testRef,
+    testResultUrl,
+  } = await readBody(req);
   const errors = {
     ...validateProjectForm(name, url),
+    ...validateProjectMeta(category, environment, description),
     ...validateTestTarget(testOwner, testRepo, testWorkflow, testRef, testResultUrl),
   };
   if (Object.values(errors).some(Boolean)) {
@@ -69,6 +93,9 @@ export async function PUT(req: Request, ctx: Ctx) {
   }
 
   const updated = await updateProject(id, name, url, {
+    category,
+    environment,
+    description,
     testOwner,
     testRepo,
     testWorkflow,

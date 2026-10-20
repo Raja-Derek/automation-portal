@@ -69,6 +69,9 @@ CREATE TABLE IF NOT EXISTS projects (
   name             TEXT NOT NULL,
   url              TEXT NOT NULL,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  category         TEXT,
+  environment      TEXT,
+  description      TEXT,
   test_status      TEXT,
   test_started_at  TIMESTAMPTZ,
   test_finished_at TIMESTAMPTZ,
@@ -80,6 +83,13 @@ CREATE TABLE IF NOT EXISTS projects (
   test_ref         TEXT,
   test_result_url  TEXT
 );
+
+-- Migrasi untuk database yang sudah ada sebelum kolom ini diperkenalkan.
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS category    TEXT;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS environment TEXT;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS description TEXT;
+
+CREATE INDEX IF NOT EXISTS projects_category_idx ON projects (category);
 `;
 
 // Seeder akun default (hanya hash yang disimpan) — ON CONFLICT menjaga idempotensi.
@@ -105,20 +115,33 @@ async function initSchema(): Promise<void> {
     [createId(), DEMO_USER_EMAIL, hashPasswordSync(DEMO_USER_PASSWORD)],
   );
 
-  // Seed 2 contoh project agar halaman tidak kosong saat pertama dibuka.
+  // Seed data contoh agar halaman tidak kosong saat pertama dibuka.
   const { rows } = await pool.query<{ count: string }>(
     "SELECT COUNT(*)::int AS count FROM projects",
   );
   if (Number(rows[0]?.count ?? 0) === 0) {
     await pool.query(
-      `INSERT INTO projects (id, name, url) VALUES ($1, $2, $3), ($4, $5, $6)`,
+      `INSERT INTO projects (id, name, url, category, environment, description)
+       VALUES ($1,$2,$3,$4,$5,$6), ($7,$8,$9,$10,$11,$12), ($13,$14,$15,$16,$17,$18)`,
       [
         createId(),
-        "n8n Production",
-        "https://n8n.io",
+        "Salesforce Instance QA",
+        "https://dev-salesforce.lintascakrawiapta.com",
+        "Salesforce CRM",
+        "dev",
+        "Instance QA untuk alur sales & service.",
         createId(),
-        "Dokumentasi Next.js",
-        "https://nextjs.org/docs",
+        "HRIS Enterprise",
+        "https://staging-hris.lintascakrawiapta.com",
+        "Web Apps",
+        "staging",
+        "Payroll & Employee Suite.",
+        createId(),
+        "Payment API Gateway",
+        "https://api-sandbox.lintascakrawiapta.com",
+        "Core Services & API",
+        "sandbox",
+        "Core Checkout & Settlement.",
       ],
     );
   }

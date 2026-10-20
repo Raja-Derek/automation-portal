@@ -8,17 +8,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import type { Project, ProjectFormValues } from "@/types/project";
-import { validateProjectForm, validateTestTarget } from "@/lib/validation";
+import type { Project } from "@/types/project";
+import {
+  validateProjectForm,
+  validateProjectMeta,
+  validateTestTarget,
+} from "@/lib/validation";
 import type { ValidationResult } from "@/lib/validation";
+import type { ProjectInput } from "@/lib/projects-store";
 import type { MutateResult } from "@/hooks/useProjects";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { CATEGORY_SUGGESTIONS, PROJECT_ENVIRONMENTS } from "@/types/project";
 import { CloseIcon, GearIcon, SpinnerIcon } from "@/components/icons";
-
-type TestTargetInput = Pick<
-  ProjectFormValues,
-  "testOwner" | "testRepo" | "testWorkflow" | "testRef" | "testResultUrl"
->;
 
 interface EditProjectModalProps {
   project: Project | null;
@@ -27,7 +28,7 @@ interface EditProjectModalProps {
     id: string,
     name: string,
     url: string,
-    test?: TestTargetInput,
+    input?: ProjectInput,
   ) => Promise<MutateResult>;
 }
 
@@ -39,6 +40,9 @@ export default function EditProjectModal({
   // Inisialisasi langsung dari props (remount via key menjamin kesegaran data).
   const [name, setName] = useState(project?.name ?? "");
   const [url, setUrl] = useState(project?.url ?? "");
+  const [category, setCategory] = useState(project?.category ?? "");
+  const [environment, setEnvironment] = useState(project?.environment ?? "");
+  const [description, setDescription] = useState(project?.description ?? "");
   const [testOwner, setTestOwner] = useState(project?.testOwner ?? "");
   const [testRepo, setTestRepo] = useState(project?.testRepo ?? "");
   const [testWorkflow, setTestWorkflow] = useState(project?.testWorkflow ?? "");
@@ -70,6 +74,7 @@ export default function EditProjectModal({
     setServerError(null);
     const validation: ValidationResult = {
       ...validateProjectForm(name, url),
+      ...validateProjectMeta(category, environment, description),
       ...validateTestTarget(testOwner, testRepo, testWorkflow, testRef, testResultUrl),
     };
     setErrors(validation);
@@ -77,6 +82,9 @@ export default function EditProjectModal({
     setBusy(true);
     try {
       const res = await onSave(project.id, name, url, {
+        category,
+        environment,
+        description,
         testOwner,
         testRepo,
         testWorkflow,
@@ -175,9 +183,87 @@ export default function EditProjectModal({
             </div>
 
             <div>
+              <label htmlFor="edit-category" className="label">
+                Kategori{" "}
+                <span className="text-xs font-normal text-slate-500">
+                  (opsional)
+                </span>
+              </label>
+              <input
+                id="edit-category"
+                type="text"
+                list="edit-category-suggestions"
+                value={category}
+                maxLength={60}
+                onChange={(e) => setCategory(e.target.value)}
+                placeholder="cth: Salesforce CRM"
+                className={`input ${errors.category ? "input-invalid" : ""}`}
+              />
+              <datalist id="edit-category-suggestions">
+                {CATEGORY_SUGGESTIONS.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+              {errors.category && (
+                <p className="mt-1.5 text-xs text-rose-600">
+                  {errors.category}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="edit-environment" className="label">
+                Environment
+              </label>
+              <select
+                id="edit-environment"
+                value={environment}
+                onChange={(e) => setEnvironment(e.target.value)}
+                className={`input ${errors.environment ? "input-invalid" : ""}`}
+              >
+                <option value="">Tidak diatur</option>
+                {PROJECT_ENVIRONMENTS.map((env) => (
+                  <option key={env.value} value={env.value}>
+                    {env.label}
+                  </option>
+                ))}
+              </select>
+              {errors.environment && (
+                <p className="mt-1.5 text-xs text-rose-600">
+                  {errors.environment}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="edit-description" className="label">
+                Deskripsi{" "}
+                <span className="text-xs font-normal text-slate-500">
+                  (opsional)
+                </span>
+              </label>
+              <input
+                id="edit-description"
+                type="text"
+                value={description}
+                maxLength={160}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="cth: Payroll & Employee Suite."
+                className={`input ${errors.description ? "input-invalid" : ""}`}
+              />
+              {errors.description && (
+                <p className="mt-1.5 text-xs text-rose-600">
+                  {errors.description}
+                </p>
+              )}
+            </div>
+
+            <div>
               <label htmlFor="edit-test-result-url" className="label">
-              Link Hasil Testing{" "}
-              <span className="text-xs font-normal text-slate-500">(opsional)</span>
+                Link Hasil Testing{" "}
+                <span className="text-xs font-normal text-slate-500">
+                  (opsional)
+                </span>
               </label>
               <input
                 id="edit-test-result-url"
